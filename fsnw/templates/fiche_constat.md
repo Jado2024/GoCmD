@@ -1,0 +1,21 @@
+# [ID] Titre court
+
+- Version auditée (SHA-256) :
+- Domaine / skill :
+- Gravité : P0 / P1 / P2 / P3 / Info
+- Statut : Conforme / Partiel / Non conforme / Non testé / Non applicable motivé
+- Date et environnement (local/staging ; jeu de données) :
+- Rôle(s) testé(s) :
+- Preuve/code de sortie / fichier:ligne :
+- Résultat attendu :
+- Résultat observé :
+- Étapes de reproduction (réversibles, copie DB) :
+- Impact métier SODEPI :
+- Cause racine vérifiée ou hypothèse :
+- Correction la plus petite sûre :
+- Test positif :
+- Test négatif / contournement :
+- Avant / après avec SHA :
+- Régressions adjacentes rejouées :
+- Limite / non testé :
+- Responsable et date de clôture :

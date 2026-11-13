@@ -1,0 +1,30 @@
+'use client'
+import {useState} from 'react'
+import {useQuery,useQueryClient} from '@tanstack/react-query'
+import {toast} from 'sonner'
+import {Card,CardContent,CardHeader,CardTitle} from '@/components/ui/card'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {api} from './hooks'
+import {hasRole,hasPermission,type SessionActor} from '@/lib/role-navigation'
+type Pending={id:number;qty:number;receivedBy:string;stockLot:{lotCode:string};stockOrder:{ref:string;createdBy:string;request:{ref:string;unit:string}}}
+export function MtsMaterialReceiptsPanel(){
+ const qc=useQueryClient()
+ const {data:actor}=useQuery({queryKey:['me'],queryFn:()=>api<SessionActor>('/api/me')})
+ const canReceive=hasRole(actor,'inventory')&&hasPermission(actor,'stock.move')
+ const canQuality=hasRole(actor,'quality')&&hasPermission(actor,'quality.manage')
+ const pending=useQuery({queryKey:['mts-receipts'],queryFn:()=>api<{items:Pending[]}>('/api/production-stock/receipts'),enabled:canReceive||canQuality||hasRole(actor,'production')})
+ const orders=useQuery({queryKey:['mts-orders'],queryFn:()=>api<{items:Array<{id:number;ref:string;status:string;request:{materialId:number|null;qty:number;unit:string;ref:string}}>} >('/api/production-stock?take=100'),enabled:canReceive})
+ const rejected=useQuery({queryKey:['mts-rejected'],queryFn:()=>api<{items:Pending[]}>('/api/production-stock/receipts?status=rejected&take=100'),enabled:canReceive})
+ const [order,setOrder]=useState(''),[lot,setLot]=useState(''),[qty,setQty]=useState(''),[reason,setReason]=useState('Reception controlee production SODEPI'),[busy,setBusy]=useState(false)
+ const [orderSearch,setOrderSearch]=useState(''),[replacement,setReplacement]=useState(''),[reworkReason,setReworkReason]=useState('Remplacement du lot rejete apres controle qualite')
+ const reworks=useQuery({queryKey:['mts-rework'],queryFn:()=>api<{approvals:Array<{id:number;sourceKind:string;sourceId:number;qty:number;usedQty:number}>}>('/api/production-stock/rework'),enabled:canReceive})
+ async function act(body:unknown){setBusy(true);try{await api('/api/production-stock/receipts',{method:'POST',body:JSON.stringify(body)});toast.success('Reception MTS mise à jour');await Promise.all([qc.invalidateQueries({queryKey:['mts-receipts']}),qc.invalidateQueries({queryKey:['stock-planning']})])}catch(e){toast.error(e instanceof Error?e.message:'Operation refusee')}finally{setBusy(false)}}
+ return <Card><CardHeader><CardTitle className="text-base">Réception matières fabriquées — OF pour stock</CardTitle></CardHeader><CardContent className="space-y-3 text-xs">
+ <p className="text-slate-600">Le magasinier enregistre la réception physique d'un OF-MTS terminé. Un agent qualité différent libère ou rejette le lot. Aucune entrée fournisseur fictive.</p>
+ {canReceive&&<div className="flex flex-wrap gap-2 items-center"><Input aria-label="Rechercher OF MTS" className="w-40" placeholder="Rechercher OF" value={orderSearch} onChange={e=>setOrderSearch(e.target.value)}/><select aria-label="Selectionner OF MTS termine" className="h-9 rounded-md border px-2" value={order} onChange={e=>{setOrder(e.target.value);setReplacement('')}}><option value="">Sélectionner OF MTS</option>{(orders.data?.items??[]).filter(x=>x.status==='completed'&&x.request.materialId!=null&&`${x.ref} ${x.request.ref}`.toLowerCase().includes(orderSearch.toLowerCase())).map(x=><option key={x.id} value={x.id}>{x.ref} · {x.request.qty} {x.request.unit}</option>)}</select><Input aria-label="Code lot fabriqué" className="w-40" placeholder="Code lot" value={lot} onChange={e=>setLot(e.target.value)}/><Input aria-label="Quantité fabriquée" className="w-32" type="number" min="0.001" step="0.001" placeholder="Quantité" value={qty} onChange={e=>setQty(e.target.value)}/><select aria-label="Lot rejeté à remplacer" className="h-9 rounded-md border px-2" value={replacement} onChange={e=>setReplacement(e.target.value)}><option value="">Nouvelle fabrication normale</option>{(rejected.data?.items??[]).filter(x=>String(x.stockOrder.ref)===(orders.data?.items??[]).find(o=>String(o.id)===order)?.ref&&(reworks.data?.approvals??[]).some(a=>a.sourceKind==='material_receipt'&&a.sourceId===x.id&&a.usedQty<a.qty)).map(x=><option key={x.id} value={x.id}>Reprendre après rejet #{x.id} · {x.qty} {x.stockOrder.request.unit}</option>)}</select>{replacement&&<Input aria-label="Motif de remplacement" className="w-64" value={reworkReason} onChange={e=>setReworkReason(e.target.value)} maxLength={500}/>}<Button size="sm" disabled={busy||!Number.isSafeInteger(Number(order))||Number(order)<1||lot.trim().length<3||Number(qty)<=0||(replacement!==''&&reworkReason.trim().length<10)} onClick={()=>void act({action:'receive',stockOrderId:Number(order),lotCode:lot,qty:Number(qty),...(replacement?{replacementReceiptId:Number(replacement),reworkApprovalId:(reworks.data?.approvals??[]).find(x=>x.sourceKind==='material_receipt'&&x.sourceId===Number(replacement))?.id,replacementReason:reworkReason.trim()}:{})})}>Réceptionner en quarantaine</Button></div>}
+ {pending.isLoading&&<p>Chargement des lots en attente...</p>}
+ {pending.data?.items.map(r=><div key={r.id} className="flex flex-wrap justify-between items-center border rounded-md p-2 gap-2"><span><strong>{r.stockOrder.ref}</strong> · lot {r.stockLot.lotCode} · {r.qty} {r.stockOrder.request.unit} · reçu par {r.receivedBy}</span>{canQuality&&<div className="flex gap-2"><Button size="sm" disabled={busy||reason.trim().length<10||actor?.username===r.receivedBy||actor?.username===r.stockOrder.createdBy} onClick={()=>void act({action:'release',receiptId:r.id,reason})}>Libérer</Button><Button variant="outline" size="sm" disabled={busy||reason.trim().length<10||actor?.username===r.receivedBy||actor?.username===r.stockOrder.createdBy} onClick={()=>void act({action:'reject',receiptId:r.id,reason})}>Rejeter</Button></div>}</div>)}
+ {canQuality&&<Input aria-label="Justification de la decision qualite" value={reason} onChange={e=>setReason(e.target.value)} maxLength={500}/>} 
+ </CardContent></Card>
+}

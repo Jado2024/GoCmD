@@ -1,0 +1,4 @@
+# AUDIT P5.15.27-A (SEC-11) : GoCmd est un ERP intranet authentifie.
+# Aucun contenu public : les robots externes n'ont rien a indexer ici.
+User-agent: *
+Disallow: /

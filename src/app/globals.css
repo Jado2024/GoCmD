@@ -1,0 +1,195 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* SODEPI — couleurs extraites du logo transmis : rouge #BD202A, anthracite #1B232C.
+   Les couleurs sémantiques restent indépendantes : succès, avertissement, erreur. */
+:root {
+  --radius: 0.625rem;
+  --sodepi-red: #bd202a;
+  --sodepi-red-hover: #9f1720;
+  --sodepi-ink: #1b232c;
+  --sodepi-surface: #ffffff;
+  --sodepi-page: #f7f8fa;
+  --sodepi-light-red: #fff0f1;
+  --background: #ffffff;
+  --foreground: #1b232c;
+  --card: #ffffff;
+  --card-foreground: #1b232c;
+  --popover: #ffffff;
+  --popover-foreground: #1b232c;
+  --primary: #bd202a;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f2f5;
+  --secondary-foreground: #1b232c;
+  --muted: #f1f3f6;
+  --muted-foreground: #4a5866;
+  --accent: #fff0f1;
+  --accent-foreground: #89141d;
+  --destructive: #b42318;
+  --border: #dee3e8;
+  --input: #ccd4dd;
+  --ring: #bd202a;
+  --chart-1: #bd202a;
+  --chart-2: #344454;
+  --chart-3: #b45309;
+  --chart-4: #047857;
+  --chart-5: #0369a1;
+  --sidebar: #1b232c;
+  --sidebar-foreground: #eef2f5;
+  --sidebar-primary: #bd202a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #343f49;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #36414b;
+  --sidebar-ring: #f77b83;
+}
+
+.dark {
+  --background: #161d25;
+  --foreground: #f4f6f8;
+  --card: #1b232c;
+  --card-foreground: #f4f6f8;
+  --popover: #1b232c;
+  --popover-foreground: #f4f6f8;
+  --primary: #f36c75;
+  --primary-foreground: #1b232c;
+  --secondary: #2c3742;
+  --secondary-foreground: #f4f6f8;
+  --muted: #303c46;
+  --muted-foreground: #cad3dc;
+  --accent: #46242b;
+  --accent-foreground: #ffe4e6;
+  --destructive: #ff8b85;
+  --border: #41505e;
+  --input: #41505e;
+  --ring: #f36c75;
+  --chart-1: #f36c75;
+  --chart-2: #96a6b8;
+  --chart-3: #f1b958;
+  --chart-4: #6ed4aa;
+  --chart-5: #75c5f6;
+  --sidebar: #1b232c;
+  --sidebar-foreground: #f4f6f8;
+  --sidebar-primary: #f36c75;
+  --sidebar-primary-foreground: #1b232c;
+  --sidebar-accent: #343f49;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #41505e;
+  --sidebar-ring: #f36c75;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ─── Scrollbar fine pour les listes de la maquette ERP ─── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.87 0 0) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: oklch(0.87 0 0);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.78 0 0);
+}
+
+
+/* Planche A4 : seuls les tickets sont visibles à l'impression. */
+@media print {
+  @page { size: A4 portrait; margin: 9mm; }
+  body * { visibility: hidden !important; }
+  .label-print-area, .label-print-area * { visibility: visible !important; }
+  .label-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 192mm !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3mm !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+  .label-card { break-inside: avoid !important; page-break-inside: avoid !important; box-shadow: none !important; }
+}
+
+/* P5.15.21 OF : impression industrielle 8 étiquettes A4 (2 colonnes × 4 rangées).
+   Le PDF est produit par l'impression navigateur, sans dépendance PDF serveur. */
+.of-print-stage { display: grid; gap: 12px; }
+.of-print-page { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.of-label { min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+.of-label .of-barcode svg { height: 19px; }
+@media print {
+  @page { size: A4 portrait; margin: 9mm; }
+  html,body { background: white !important; overflow: visible !important; }
+  body * { visibility: hidden !important; }
+  .of-print-stage,.of-print-stage * { visibility: visible !important; }
+  .of-print-stage { position: absolute !important; top: 0 !important; left: 0 !important; width: 192mm !important; display: block !important; }
+  .of-print-page { display: grid !important; grid-template-columns: repeat(2,94.5mm) !important;
+    grid-template-rows: repeat(4,67.5mm) !important; gap: 2mm 3mm !important;
+    width: 192mm !important; height: 276mm !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important;
+    break-inside: avoid !important; page-break-inside: avoid !important; }
+  .of-print-page:not(:last-child) { break-after: page !important; page-break-after: always !important; }
+  .of-label { height: 67.5mm !important; max-height: 67.5mm !important; background: #fff8b2 !important;
+    break-inside: avoid !important; page-break-inside: avoid !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+  .of-label .of-barcode svg { height: 18px !important; }
+  /* Débloquer les conteneurs Radix et empêcher les boîtes de dialogue de découper les pages. */
+  [role="dialog"], [data-slot="dialog-content"] { overflow: visible !important; max-height: none !important; transform: none !important; position: static !important; }
+}

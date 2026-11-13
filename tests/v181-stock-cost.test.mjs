@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict'
+import { receivedWeightedAverageCost as cost } from '../src/lib/stock-cost.ts'
+assert.equal(cost(0, 125, 110, 10, 30), '30.000000', 'stock nul: aucun coût résiduel')
+assert.equal(cost(-0.00001, 150, 100, 2, 45), '45.000000', 'stock antérieur négatif')
+assert.equal(cost(10, 20, 100, 10, 30), '25.000000', 'moyenne pondérée')
+assert.equal(cost(10, null, 18, 10, 22), '20.000000', 'coût unitaire de repli')
+assert.equal(cost(10, 0, 18, 10, 22), '11.000000', 'coût moyen zero valide')
+assert.equal(cost(0, null, 18, 1, 25), '25.000000', 'première réception')
+assert.throws(() => cost(0, null, 18, 0, 25), RangeError)
+assert.throws(() => cost(0, null, 18, 1, -25), RangeError)
+assert.throws(() => cost(NaN, null, 18, 1, 25), RangeError)
+assert.throws(() => cost(10, -2, 18, 1, 25), RangeError, 'coût moyen historique négatif interdit')
+assert.throws(() => cost(10, null, -2, 1, 25), RangeError, 'coût de repli négatif interdit')
+assert.equal(cost(3, 19.99, 18, 7, 20.01), '20.004000', 'CUMP pondéré, prix à 2 décimales')
+console.log('PASS V18.1: weighted-average cost (12 tests)')

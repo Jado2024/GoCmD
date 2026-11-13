@@ -1,0 +1,200 @@
+name: GoCmd quality gate
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install exact dependencies
+        run: bun install --frozen-lockfile
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: playwright-chromium-${{ runner.os }}-
+      - name: Install Chromium for Playwright E2E
+        run: bunx playwright install --with-deps chromium
+      - name: Configure isolated testing DB
+        run: |
+          cp .env.example .env
+          # Barème de démonstration réservé aux tests automatisés, jamais applicable fiscalement.
+          echo 'GOCMD_SALES_TAX_RATES_BPS="0,700,2000"' >> .env
+          test -f db/custom.db
+      - name: Prisma generated client and schema
+        run: |
+          bunx prisma validate
+          bunx prisma generate
+      - name: Migrer uniquement la base de test CI (stock fini, documents figés et retours)
+        run: |
+          python scripts/upgrade_sales_snapshots_p51521.py --db db/custom.db --apply
+          python scripts/upgrade_finished_stock_p51521.py --db db/custom.db --apply
+          python scripts/upgrade_customer_returns_p51521.py --db db/custom.db --apply
+      # P5.15.21 (DEF-V-02) : sans cette migration, la création de toute commande
+      # échoue (table WorkOrder exigée par les OF automatiques) et la recette
+      # http-sales-recipe.cjs tombe en 409 dès la conversion du devis.
+      - name: Migrer la base de test CI (OF automatiques + avoirs ligne à ligne)
+        run: |
+          python scripts/upgrade_sales_credit_lines_p51521.py --db db/custom.db --apply
+          python scripts/upgrade_work_orders_p51521.py --db db/custom.db --apply --backup "$RUNNER_TEMP/gocmd-of-backup.db"
+      - name: Migration stock fini réservé — P5.15.23
+        run: python scripts/upgrade_finished_reservations_p51523.py --db db/custom.db --apply
+      - name: Migration reconstitution MTS - base de test CI isolee
+        run: |
+          python scripts/upgrade_replenishment_p51525.py --db db/custom.db --apply
+          python scripts/upgrade_production_mts_p51526.py --db db/custom.db --apply
+          python scripts/upgrade_mts_rework_cost_p51527.py --db db/custom.db --apply
+      - name: Tests de securite et coherence fabrication stock P5.15.26
+        run: bun run test:p51526
+      - name: P5.15.27 - Rework, cout standard, migrations et formules
+        run: bun run test:p51527
+      - name: P5.15.29 P4/P5 — migration non destructive et détection de doublons
+        run: |
+          python scripts/upgrade_order_idempotency_p4.py --db db/custom.db --apply
+          python scripts/upgrade_customer_order_duplicates_p5.py --db db/custom.db --apply
+          bun run test:p5:p51529
+      - name: P6U P1FIX — contrats d'approbation et sécurité Windows
+        run: python tests/test_p6u_hardening.py
+      - name: P6U P2FIX — contrat approbation, service Windows et sauvegarde automatique
+        run: python tests/test_p6u_p2fix_contracts.py
+      - name: P6 unifiée — verrou d'instance, retries et identité des commandes
+        run: bun run test:p6:integration
+      - name: Cascade P6 — parité Prisma/SQLite, indexation, quatre-yeux et anciens tests
+        run: python tests/test_cascade_p6_reservation_index_drift.py && python tests/test_fk_indexes_20261110.py && python tests/test_p51521_guards.py && python tests/test_p51521_work_orders_security_contract.py && python tests/test_security_closure_20261109.py && python tests/test_p5143_demo.py
+      - name: Cascade 2 — engagement des réservations, migrations anciennes et SQL réel
+        run: python tests/test_cascade2_engagement_guards.py && python tests/test_cascade2_engagement_stress.py
+      - name: P6 unifiée — réservations, scellement complet et supervision
+        run: |
+          python scripts/upgrade_reservation_engagement_p6.py --db db/custom.db --apply
+          bun run test:p6:reservations
+          bun run test:p6:seal-chain
+          bun run test:p6:exploitation
+      - name: P5.15.29 - Approbations nominatives et confirmation tarifaire personnelle
+        run: bun run test:p2:p51529
+      - name: Tests réserve stock fini, intégrité SQLite et parcours métier
+        run: python tests/test_finished_reservations_p51523.py
+      - name: Tests des corrections ventes P5.15.21
+        run: bun run test:sales-fixes:p51521
+      - name: Garde-fou de démarrage ventes (DEF-V-02)
+        run: bun run test:startup-guard:p51521
+      - name: P5.15.23 - intégrité historique, sauvegardes migrations, précision financière
+        run: bun run test:integrity:p51523
+      - name: Regeneration DEMO isolee (82 MP, 18 fournisseurs, 19 protections)
+        run: bun run test:demo:reset:p51523
+      - name: V2 — generated PF identity parity, snapshots et base DEMO (blocking)
+        run: |
+          bun run test:codification:v2
+          node --experimental-strip-types tests/v2-price-snapshot.test.mjs
+          node --experimental-strip-types tests/v2-pf-database-parity.test.mjs
+          python tests/test_v2_line_approval_contract.py
+          python tests/test_r4_regression_contracts.py
+          node tests/r4-quote-price-policy.test.cjs
+          node scripts/check_v2_ts_syntax.cjs
+      - name: V2 R5 — préparation GEN, snapshot contractuel, interfaces et intégrité DEMO
+        run: bun run test:v2:r5
+      - name: R6/R7 — listes paginées, indicateurs, file prix et GEN-DIV (bloquant)
+        run: bun run test:v2:r7
+      - name: R8 — audit frais, sécurité approbations fournisseurs, pagination clients et interfaces
+        run: bun run test:v2:r8
+      - name: R9 — OF confidentiels, pagination magasinier et révocation finance (bloquant)
+        run: bun run test:v2:r9
+      # R12 security and DB gates: a vulnerable lockfile MUST fail CI.
+      - name: R12 — known dependency advisories (blocking)
+        run: bun run security:known-advisories
+      - name: R12 — permissions, list contract and private network checks
+        run: |
+          node tests/r12-director-privacy.test.cjs
+          bun run test:r11:contracts
+          bun run test:r11:network
+          python tests/test_r12_order_index.py
+      - name: R12 — index migration on isolated copy and backup
+        run: |
+          cp db/custom.db "$RUNNER_TEMP/order-index-source.db"
+          python scripts/upgrade_order_list_index_r11.py --db "$RUNNER_TEMP/order-index-source.db" --backup "$RUNNER_TEMP/order-index-pre-migration.db" --apply
+          python scripts/verify_order_index_r12.py --db "$RUNNER_TEMP/order-index-source.db"
+      - name: Type check
+        run: bunx tsc --noEmit
+      - name: ESLint (no errors)
+        run: bun run lint
+      - name: CI coverage guard (11 historical regressions and SC-13..15)
+        run: bun run test:ci:coverage:p51523
+      - name: Hardening authentication audit and safe demo startup (blocking)
+        run: bun run test:hardening:p51523
+      - name: Invoice immutability and sanitized security logging (blocking)
+        run: |
+          python tests/test_invoice_immutability_p51523.py
+          node --experimental-strip-types tests/safe-server-error-p51523.test.mjs
+          python scripts/verify_operational_guards_p51523.py --db db/custom.db
+      - name: Commercial SODEPI and security closure contracts (blocking)
+        run: |
+          bun run test:commercial:sodepi
+          bun run test:security:closure
+      - name: SODEPI residual risk controls (material OF reservation, VAT/freight, PII)
+        run: bun run test:rr19:hardening
+      - name: Automated tests
+        run: bun run test:regression
+      - name: Validate audit registers and pending decisions
+        run: bun run test:audit:quality
+      - name: Approved SODEPI decisions - pure logic and disposable database
+        run: |
+          node --experimental-strip-types tests/v18913p51521-business-decisions.test.mjs
+          python tests/test_p51521_new_migrations.py
+      - name: OF - migration additive et pagination 8 étiquettes (9/7/11 pièces)
+        run: bun run test:work-orders:p51521
+      - name: Production build
+        run: bun run build
+      - name: P5.15.21 contract cap HTTP and security guard tests (production build)
+        run: bun run test:p51521
+      - name: R13 — contre-audit indépendant et concurrence 409/503 (bloquant)
+        run: |
+          bun run test:r13:concurrency:invariants
+          bun run test:r13:concurrency
+          bun run test:r132:contracts
+          node tests/audit-b-independant-r13.cjs
+      # R13.3 CORR-01 : ce test crée une copie TEMPORAIRE de db/custom.db,
+      # rejoue des logins + décisions + écritures Prisma en concurrence et
+      # refuse PASS si la phase sensible n'a exercé aucune approbation réelle.
+      - name: R13.3 — integrity anti-corruption contracts (blocking)
+        run: node --test tests/r133-handoff-integrity-contract.test.cjs
+      - name: R13.3 — dual-engine SQLite corruption regression (isolated, blocking)
+        env:
+          GOCMD_E2E_CONFIRM: ISOLATED_DB_ONLY
+        run: node tests/r133-dual-engine-corruption.test.cjs
+      # R13.3 D-GEN-01 (option D) : GEN-MAT/GEN-MOU insèrent des fiches INT-GEN
+      # conformes à la taxonomie V16 (champs réels saisis, trigger NON contourné) ;
+      # GEN-DIV est refusé en 400 explicite (famille DIVERS absente, décision
+      # métier SODEPI en attente — jamais d'aborton 503 trompeur).
+      - name: R13.3 — D-GEN-01 generic taxonomy regression (isolated, blocking)
+        env:
+          GOCMD_E2E_CONFIRM: ISOLATED_DB_ONLY
+        run: node tests/r133-dgen01-generic-taxonomy.test.cjs
+      - name: RBAC HTTP checks on isolated disposable SQLite database
+        run: node tests/ci-v1896-isolated-http.cjs
+      - name: V18.9.9 business recipe (director price, salon ml, gabarit 11) on isolated server
+        run: node tests/http-v1899-business-recipe.cjs
+      - name: Explicit client privacy denial on isolated production server
+        run: bun run test:http:privacy
+      - name: Maintained HTTP recipes with SQLite sessions and award plans
+        run: bun run test:http:all
+      - name: Cumulative six-month business recipe
+        run: bun run test:audit:six-months
+      - name: Recette metier ventes SC-01..SC-12 (contre-audit 2026-11-08)
+        run: bun run test:sc-ventes:p51521
+      - name: Recette metier ventes SC-13..SC-15 (P5.15.23, base isolee, echec bloquant)
+        run: bun run test:sc-ventes:p51523
+      - name: Concurrence OF stock fini - deux OF x 4 matelas sur 4 en stock (P5.15.22 CLT-04)
+        run: bun run test:of-concurrency:p51522
+      - name: E2E Playwright - circuit ventes dans l'interface reelle (base isolee, echec bloquant)
+        run: bun run test:e2e
+      - name: P6 unifiée — charge et intégrité sur serveur compilé
+        run: bun run test:p6:load
+      - name: V18.9.10 UX/UI static contracts (focus, contrastes classes, a11y)
+        run: bun run test:v18910

@@ -1,0 +1,1446 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Matières premières (mousses, tissus, mercerie, emballage…)
+// ─────────────────────────────────────────────────────────────
+model Material {
+  id        Int      @id @default(autoincrement())
+  ref       String   @unique // ex. "Mousse-D33", "TISSU-Standard-…"
+  name      String // libellé lisible
+  category  String // Mousse | Tissu | Mercerie | Emballage & consommables
+  unit      String // m³ | ml | kg | pcs
+  unitPrice Float // MAD par unité
+  stockQty  Float   @default(0)
+  minStock  Float   @default(0)
+  targetStock Float? // null = minStock, seuil de declenchement distinct de la cible
+  location  String?
+  supplier  String?
+  foamNature String? // PURE | AGGLO (matières mousse seulement)
+  foamFormat String? // ROULEAU | PLAQUE | BLOC (mousse pure) ; PLAQUE | BLOC (agglomeree)
+  foamGrade String? // qualité/type interne fictif en simulation
+  foamDensity Float? // kg/m³ (matières mousse seulement)
+  foamColor String? // couleur codifiee BLN/BLE/... pour mousse
+  foamFirmness String? // SOU | MOY | FER | TFR, facultatif
+  foamResilience Float? // pourcentage, facultatif
+  foamSupplierGrade String? // grade technique, pas identifiant fournisseur
+  foamLengthCm Float? // longueur de reference (rouleau: si fixe)
+  foamWidthCm Float? // largeur
+  foamHeightCm Float? // hauteur bloc
+  foamThicknessCm Float? // epaisseur plaque/rouleau
+  description String? // description detaillee, proposee et editable
+  foamIdentityKey String? @unique // empreinte canonique des variantes, null pour anciennes fiches
+  canonicalIdentity String? @unique // V2, toutes les familles, empreinte JSON typée
+  technicalAttributesJson String? // V2, attributs distinctifs figés et normalisés
+  // P5.15.3 : un même article matière peut être acheté, utilisé et revendu.
+  isPurchasable Boolean @default(true)
+  isManufactured Boolean @default(false)
+  isSellable Boolean @default(false)
+  isInternalUse Boolean @default(true)
+  salesUnit String? // null => unite de stock
+  unitsPerSale Float @default(1) // nombre d'unites de stock / unite de vente
+  salesUnitPrice Float @default(0) // prix indicatif MAD / unite de vente, distinct cout d'achat
+  pendingSalesUnitPrice Float?
+  salesPriceProposedBy String?
+  salesPriceProposalReason String?
+  salesPriceProposedAt DateTime?
+  salesPriceProposalRevision Int @default(0)
+  tradeProduct Product?
+
+  movements     Movement[]
+  purchaseLines PurchaseRequestLine[]
+  productionRequests ProductionReplenishmentRequest[]
+  supplierLinks SupplierMaterial[]
+  supplierOrderLines SupplierOrderLine[]
+  stockLots StockLot[]
+  qualityChecks QualityInspection[]
+  averageCost Decimal?
+  rfqs SupplierRFQ[]
+  priceAgreements SupplierPriceAgreement[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Produits (finis / semi-finis) — BANQUETTE | GAUFRETTE | SALON | MATELAS | PLAQUE_MOUSSE
+// Pas de nomenclature (BOM) pour le moment.
+// Vente au ml (banquettes, gaufrettes, salons) ; matelas à l'unité.
+// Le prix est SAISI à la commande (ajustable selon dimensions) ;
+// unitPrice n'est qu'un prix indicatif par défaut.
+// ─────────────────────────────────────────────────────────────
+model Product {
+  id        Int      @id @default(autoincrement())
+  sku       String   @unique
+  canonicalIdentity String? @unique // V2, identité technique des PF fixes
+  technicalAttributesJson String?
+  isOrderScoped Boolean @default(false) // fiche technique interne propre à une ligne GEN, invisible au catalogue
+  revisionOfId Int? // Identifiant de la version antérieure (historique conservé)
+  revisionNumber Int @default(1)
+  revisionRequestedBy String?
+  revisionApprovedBy String?
+  name      String // "BANQUETTE ARVENA - 100×70×27"
+  family    String
+  model     String
+  subCategory String? // Adulte | Enfant | Bébé | Hôtellerie | Sur mesure (matelas)
+  commercialAbbreviation String? // Code court commercial propose, modifiable, jamais suffixe C/S impose
+  commercialBrand String? // Marque sous laquelle le produit est vendu
+  actualManufacturer String? // Fabricant reel, distinct de la marque commerciale
+  descriptionOverride String? // Designation editee, independante du SKU et de la fiche technique
+  legacySku String?   // Conservé au schéma pour compatibilité (vide dans catalogue renommé)
+  legacyName String?  // Conservé au schéma pour compatibilité (vide)
+  legacyModel String? // Conservé au schéma pour compatibilité (vide)
+  variant   String   @default("STD") // STD | L | U
+  length    Int
+  width     Int
+  height    Int
+  unit      String   @default("u") // unité de vente : ml | u
+  unitPrice Float    @default(0) // prix de vente indicatif (saisi)
+  minStock Float @default(0) // seuil d’alerte pour reconstitution du stock
+  targetStock Float? // objectif de stock ; null = seuil minimum
+  pendingCatalogUnitPrice Float? // proposition, jamais appliquee sans directeur
+  catalogPriceProposedBy String?
+  catalogPriceProposalReason String?
+  catalogPriceProposedAt DateTime?
+  catalogPriceProposalRevision Int @default(0)
+  // Classification commerciale et technique GoCmd V16 (métier SODEPI, données DEMO)
+  coreType String? // SANS_RESSORTS | BONNELL | ENSACHES — matelas et banquettes
+  foamComposition String? // PURE | MELANGE | AGGLO — composition de la partie mousse
+  mattressFinish String? // SANS | TOPPER | ALESE — mutuellement exclusifs
+  upholstery String? // NUE | TISSU — seulement les banquettes
+  foamNature String? // PURE | AGGLO — plaques de mousse
+  foamGrade String? // qualité/type, nomenclature configurable
+  foamDensity Float? // densité kg/m³ si une seule mousse
+  foamLayers String? // JSON de couches (mélanges), densités et épaisseurs distinctes
+  taxonomyVersion Int @default(1)
+  createdAt DateTime @default(now())
+  status String @default("active") // active | pending_validation | rejected
+  similarProductId Int?
+  similarProductSku String?
+  specialNotes String?
+  // Autorisation tarifaire indépendante de la validation ordinaire de commande.
+  // not_required (catalogue ordinaire) | pending | approved | rejected.
+  specialPriceStatus String @default("not_required")
+  specialApprovedUnitPrice Float?
+  specialPriceProposedBy String?
+  specialPriceApprovedBy String?
+  specialPriceApprovedAt DateTime?
+  specialPriceDecisionReason String?
+  specialPriceRevision Int @default(0)
+  // Article commercial de négoce : une seule source de stock = Material.
+  materialId Int? @unique
+  material Material? @relation(fields: [materialId], references: [id])
+  unitsPerSale Float @default(1)
+
+  orderLines OrderLine[]
+  finishedStockLots FinishedStockLot[]
+  productionRequests ProductionReplenishmentRequest[]
+
+  @@index([family, model, variant])
+  @@index([name])
+  @@index([subCategory])
+  @@index([family, coreType, foamComposition])
+  @@index([family, foamNature, foamDensity])
+  @@index([legacySku])
+}
+
+
+// Proposition de reconstitution du stock, jamais un OF de commande client.
+// Validation explicite, livraison en stock distincte et controles de doublons.
+model ProductionReplenishmentRequest {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  productId Int?
+  product Product? @relation(fields:[productId],references:[id],onDelete:Restrict)
+  materialId Int?
+  material Material? @relation(fields:[materialId],references:[id],onDelete:Restrict)
+  qty Float
+  unit String
+  status String @default("proposed") // proposed | approved | rejected | cancelled | completed
+  reason String
+  createdBy String
+  createdAt DateTime @default(now())
+  decidedBy String?
+  decidedAt DateTime?
+  decisionReason String?
+  stockOrder ProductionStockOrder?
+  @@index([productId,status])
+  @@index([materialId,status])
+}
+
+// P5.15.26 : OF de fabrication POUR STOCK. Indépendant de l'OF lié à une CMD.
+// Une DPR approuvée crée exactement un ordre, sans mouvement physique automatique.
+model ProductionStockOrder {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  requestId Int @unique
+  request ProductionReplenishmentRequest @relation(fields:[requestId],references:[id],onDelete:Restrict)
+  status String @default("approved") // approved | planned | in_progress | completed | closed | cancelled
+  createdBy String
+  createdAt DateTime @default(now())
+  plannedStartAt DateTime?
+  dueAt DateTime?
+  plannedBy String?
+  startedBy String?
+  startedAt DateTime?
+  completedBy String?
+  completedAt DateTime?
+  closedBy String?
+  closedAt DateTime?
+  statusReason String?
+  materialReceipts ProductionMaterialReceipt[]
+  approvedMaterialCost ProductionMaterialCostApproval?
+  @@index([status,createdAt])
+}
+
+// Receptions physiques MTS de matieres fabriquees, avant libération qualité.
+// qty et liens de provenance sont immuables ; seule la décision qualité évolue.
+model ProductionMaterialReceipt {
+  id Int @id @default(autoincrement())
+  stockOrderId Int
+  stockOrder ProductionStockOrder @relation(fields:[stockOrderId],references:[id],onDelete:Restrict)
+  stockLotId Int @unique
+  stockLot StockLot @relation(fields:[stockLotId],references:[id],onDelete:Restrict)
+  qty Float
+  status String @default("quarantine") // quarantine | released | rejected
+  receivedBy String
+  receivedAt DateTime @default(now())
+  decidedBy String?
+  decidedAt DateTime?
+  reason String?
+  @@index([stockOrderId,status])
+}
+
+// Production supervisor authorization for each rejected source, used atomically.
+// This replaces no historic receipt and cannot authorize more than rejected qty.
+model ProductionReworkApproval {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  sourceKind String // material_receipt | finished_lot
+  sourceId Int
+  productionRef String
+  qty Float
+  usedQty Float @default(0)
+  unit String
+  approvedBy String
+  approvedAt DateTime @default(now())
+  reason String
+  @@unique([sourceKind,sourceId])
+}
+
+// A cost recorded by a DIFFERENT finance actor: standard provisional valuation,
+// not a fabricated actual BOM/manufacturing cost. Once issued it is immutable.
+model ProductionMaterialCostApproval {
+  id Int @id @default(autoincrement())
+  stockOrderId Int @unique
+  stockOrder ProductionStockOrder @relation(fields:[stockOrderId], references:[id], onDelete:Restrict)
+  unitCost Decimal
+  currency String @default("MAD")
+  approvedBy String
+  approvedAt DateTime @default(now())
+  reason String
+}
+
+// ─────────────────────────────────────────────────────────────
+// Clients
+// ─────────────────────────────────────────────────────────────
+model Client {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  city   String
+  phone  String?
+  orders Order[]
+  salesQuotes SalesQuote[]
+  salesInvoices SalesInvoice[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Commandes clients
+// ─────────────────────────────────────────────────────────────
+model Order {
+  id        Int      @id @default(autoincrement())
+  ref       String   @unique
+  clientId  Int
+  client    Client   @relation(fields: [clientId], references: [id])
+  status    String   @default("new") // new | production | ready | shipped
+  priority  String   @default("normale") // normale | haute
+  dueDate   DateTime?
+  note      String?
+  customerOrderNo String? // numéro de commande externe (photo : Cde.)
+  customerOrderNoNormalized String? // unicité par client, migration offline P5
+  reviewComment String?
+  reviewedBy String?
+  reviewedAt DateTime?
+  // P5.15.21 (SEP-001) : créateur de la commande, base de la garde quatre-yeux
+  // (le créateur ne peut pas valider sa propre commande). Null pour l'historique
+  // pré-P5.15.21 : ces commandes ne déclenchent jamais la garde.
+  createdBy String?
+  createdAt DateTime @default(now())
+  // Clé optionnelle par intention de saisie : hash utilisateur+clé client.
+  // NULL pour les commandes historiques et clients API sans clé explicite.
+  createRequestKey String? @unique
+  createRequestDigest String?
+  lines     OrderLine[]
+  workOrders WorkOrder[]
+  quoteId Int? @unique
+  quote SalesQuote? @relation(fields:[quoteId],references:[id])
+  salesDeliveries SalesDelivery[]
+  salesInvoices SalesInvoice[]
+  fulfillmentStatus String @default("open") // open | on_hold | closed (distinct atelier)
+  fulfillmentReason String?
+  fulfillmentActor String?
+  fulfillmentChangedAt DateTime?
+
+  @@index([status])
+  @@index([dueDate])
+  @@unique([clientId, customerOrderNoNormalized])
+  @@index([clientId, dueDate])
+  // R11 PERF-02: ORDER BY createdAt DESC,id DESC avec LIMIT pour le tableau.
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "Order_createdAt_id_idx")
+}
+
+model OrderLine {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  kind String @default("CATALOG") // CATALOG | GENERIC
+  genericTemplate String? // GEN-MAT | GEN-MOU | GEN-SAL | GEN-DIV
+  technicalSnapshotJson String? // configuration contractuelle immuable dès commande
+  technicalSnapshotHash String? // SHA-256 du snapshot de configuration
+  qty       Float // quantité dans l'unité de vente (décimal autorisé, ex. 6,5 ml)
+  unit      String  @default("u") // unité figée à la saisie : ml | u
+  unitPrice Float // Prix contractuel figé par ligne en MAD
+  catalogUnitPriceSnapshot Float? // Tarification de référence au moment de la saisie
+  priceApprovalStatus String @default("not_required") // not_required | pending | approved
+  priceApprovedBy String?
+  priceApprovedAt DateTime?
+  priceApprovalReason String?
+  technicalInstructions String? // Consignes atelier contractuelles de cette commande
+  customDimensionsJson String? // Dimensions dérogatoires figées (cm)
+  technicalReviewRequired Boolean @default(false)
+  stockUnit String? // photographie de l'unite de stock pour la revente
+  stockUnitsPerSale Float @default(1) // conversion figée lors de la commande
+  modelRef  String? // ex. F111XY, référence commerciale
+  configRef String? // ex. 10199625 CG, référence configuration
+  // Désignation contractuelle figée à la confirmation de commande (VEN-02).
+  productNameSnapshot String?
+  productSkuSnapshot String?
+  pieces    OrderPiece[]
+  workOrder WorkOrder?
+  deliveryLines SalesDeliveryLine[]
+  reservations SalesStockReservation[]
+  finishedReservations FinishedStockReservation[]
+  @@index([orderId]) // audit 2026-11-10 : FK non indexée par SQLite
+  @@index([productId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+// Une pièce physique fabriquée = une étiquette, même si plusieurs pièces
+// appartiennent à la même ligne commerciale / au même salon.
+model OrderPiece {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique // identifiant permanent de traçabilité
+  orderLineId Int
+  orderLine   OrderLine @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  salonNo     Int      @default(1) // salon N sur M lorsqu'on en commande plusieurs
+  elementNo   Int      @default(1) // position unique dans la commande
+  partRef     String?  // identifiant métier libre: L01, L02 (doublons autorisés)
+  linearMeters Float?  // longueur de facturation validée de cette pièce (ml)
+  gabaritCode String?  // STD, 06, 11...51 (52 exclu)
+  billingMode String   @default("manual") // manual, reserved for verified formula
+  sequence    Int      // ordre physique de l'étiquette sur la ligne
+  label       String   // nom de la banquette / pièce
+  shape       String   @default("rectangle")
+  lengthCm    Float
+  widthCm     Float
+  heightCm    Float
+  dimensionsExtra String? // JSON mesures supplémentaires selon le gabarit
+  note        String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  @@index([orderLineId])
+  @@index([status])
+}
+
+
+// OF simplifiés GoCmd : un OF tracé par ligne commerciale, y compris négoce.
+// Aucun mouvement de stock à la création ; aucun procédé GoProd exécuté ici.
+model WorkOrder {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  orderId Int
+  order Order @relation(fields:[orderId], references:[id], onDelete:Restrict)
+  orderLineId Int @unique
+  orderLine OrderLine @relation(fields:[orderLineId], references:[id], onDelete:Restrict)
+  status String @default("draft") // draft | approved | in_progress | completed | cancelled
+  snapshotJson String // fiche + pièces figées à la création
+  totalPieces Int // Nombre d’étiquettes : pièces physiques ou 1 étiquette de préparation
+  createdBy String
+  createdAt DateTime @default(now())
+  approvedBy String?
+  approvedAt DateTime?
+  startedBy String?
+  startedAt DateTime?
+  completedBy String?
+  completedAt DateTime?
+  preparationKind String? // stock | manufacturing | legacy_stock, sans impact sur la CMD
+  finishedStockReceipts FinishedStockLot[]
+  @@index([orderId,status])
+  @@index([status,createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mouvements de stock (matières premières)
+// type : in (réception) | out (sortie) | production (consommation
+// atelier saisie manuellement) | adjust (régularisation)
+// ─────────────────────────────────────────────────────────────
+model Movement {
+  id         Int       @id @default(autoincrement())
+  ref        String    @unique
+  type       String // in | out | production | adjust
+  materialId Int?
+  // Audit 10/11/2026 (DB-HIST-02) : Restrict explicite — la suppression d'une
+  // matière ne doit jamais détacher l'historique des mouvements (le DDL réel
+  // portait ON DELETE SET NULL ; complété par le trigger SQL
+  // gocmd_no_hard_delete_material installé par upgrade_material_delete_guard_20261110.py).
+  material   Material? @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  qty        Float
+  unit       String?
+  reason     String
+  document   String?
+  operator   String
+  createdAt  DateTime  @default(now())
+
+  goodsReceiptLine GoodsReceiptLine?
+  stockLotId Int?
+  stockLot StockLot? @relation(fields: [stockLotId], references: [id])
+  salesAllocation SalesStockAllocation?
+  signedQty Float? // quantité signée : positive entrée, négative sortie
+  isArchived Boolean @default(false) // ancien historique de démonstration, jamais dans les soldes
+  archivedAt DateTime?
+  archiveReason String?
+  isOpeningBalance Boolean @default(false) // reprise démo = écriture d'ouverture, pas une livraison
+  @@index([isArchived, createdAt])
+  @@index([isOpeningBalance])
+  @@index([createdAt])
+  @@index([materialId])
+  @@index([stockLotId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+// ─────────────────────────────────────────────────────────────
+// Demandes d'achat (matières premières)
+// Workflow : pending → approved → ordered → partial → received ; closed (solde annulé)
+// ─────────────────────────────────────────────────────────────
+model PurchaseRequest {
+  id           Int       @id @default(autoincrement())
+  ref          String    @unique
+  status       String    @default("pending") // pending | approved | partially_approved | rejected | ordered | partial | received | closed | cancelled
+  supplier     String?
+  expectedDate DateTime?
+  note         String?
+  createdAt    DateTime  @default(now())
+  lines        PurchaseRequestLine[]
+  receipts     PurchaseReceipt[]
+  closedReason String?
+  closedBy     String?
+  closedAt     DateTime?
+  createdBy    String?
+  approvedBy   String?
+  approvedAt   DateTime?
+
+  @@index([status])
+  @@index([status,createdAt,id])
+  @@index([createdAt,id])
+}
+
+model PurchaseRequestLine {
+  id         Int          @id @default(autoincrement())
+  requestId  Int
+  request    PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  materialId Int
+  material   Material     @relation(fields: [materialId], references: [id])
+  qty        Float // quantité initialement demandée, jamais modifiée par la validation
+  approvedQty Float @default(0) // autorisé après décision; 0 pour ligne en attente/refusée
+  approvalDecision String @default("pending") // pending | approved | reduced | rejected
+  approvalReason String?
+  decisionBy String?
+  decisionAt DateTime?
+  unitPrice  Float?
+  receivedQty Float  @default(0)
+  receiptLines PurchaseReceiptLine[]
+  supplierOrderLines SupplierOrderLine[]
+  @@index([requestId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+// Pièce justificative de réception ; un BL n'est validé qu'une fois par DA.
+model PurchaseReceipt {
+  id           Int      @id @default(autoincrement())
+  requestId    Int
+  request      PurchaseRequest @relation(fields: [requestId], references: [id])
+  deliveryRef  String
+  operator     String
+  note         String?
+  createdAt    DateTime @default(now())
+  lines        PurchaseReceiptLine[]
+
+  @@unique([requestId, deliveryRef])
+  @@index([createdAt])
+}
+
+model PurchaseReceiptLine {
+  id            Int @id @default(autoincrement())
+  receiptId     Int
+  receipt       PurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  requestLineId Int
+  requestLine   PurchaseRequestLine @relation(fields: [requestLineId], references: [id])
+  acceptedQty   Float
+  rejectedQty   Float @default(0)
+  lot           String?
+  note          String?
+
+  @@unique([receiptId, requestLineId])
+  @@index([requestLineId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+
+
+// APPROVISIONNEMENTS V2 : DA (besoin) -> BC (fournisseur) -> BR (réception) -> stock.
+// Les anciennes tables PurchaseReceipt restent en lecture pour l'historique.
+model Supplier {
+  id Int @id @default(autoincrement())
+  code String @unique
+  name String @unique
+  phone String?
+  email String?
+  address String?
+  city String?
+  country String?
+  ice String? // Identifiant commun de l'entreprise (Maroc)
+  taxId String? // Identifiant fiscal (Maroc)
+  tradeRegister String? // Registre de commerce
+  paymentTerms String? // Conditions de paiement indicatives
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  materials SupplierMaterial[]
+  orders SupplierOrder[]
+  deliveryNotes SupplierDeliveryNote[]
+  returns SupplierReturn[]
+  invoices SupplierInvoice[]
+  qualifications SupplierQualification[]
+  quoteOffers SupplierQuoteOffer[]
+  consultationRecipients SupplierConsultationRecipient[]
+  priceAgreements SupplierPriceAgreement[]
+  creditNotes SupplierCreditNote[]
+  disputes SupplierDispute[]
+  refunds SupplierRefund[] // V18.9.2 (contre-audit F02)
+}
+
+model SupplierMaterial {
+  id Int @id @default(autoincrement())
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  materialId Int
+  material Material @relation(fields: [materialId], references: [id])
+  supplierSku String?
+  supplierLookupKey String? @unique // clé normalisée fournisseur + référence, hors exceptions approuvées
+  supplierSkuExceptionApprovedBy String?
+  supplierSkuExceptionReason String?
+  unitPrice Float?
+  leadTimeDays Int?
+  preferred Boolean @default(false)
+  purchaseUnit String?
+  unitsPerPurchase Float @default(1) // quantité unité stock par 1 unité achetée
+  @@unique([supplierId, materialId])
+  @@index([materialId])
+}
+
+model SupplierOrder {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  status String @default("draft") // draft | confirmed | partial | received | closed
+  expectedDate DateTime?
+  note String?
+  createdAt DateTime @default(now())
+  closedAt DateTime?
+  closedReason String?
+  createdBy String?
+  approvedBy String?
+  lines SupplierOrderLine[]
+  receipts GoodsReceipt[]
+  revisions SupplierOrderRevision[]
+  deliveries SupplierDeliverySchedule[]
+  @@index([supplierId, status])
+}
+
+model SupplierOrderLine {
+  id Int @id @default(autoincrement())
+  orderId Int
+  order SupplierOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  materialId Int
+  material Material @relation(fields: [materialId], references: [id])
+  requestLineId Int?
+  requestLine PurchaseRequestLine? @relation(fields: [requestLineId], references: [id])
+  qty Float // stock units
+  receivedQty Float @default(0) // accepted quantities only
+  unitPrice Float // stock unit cost, not purchase-unit cost
+  purchaseQty Float?
+  purchaseUnit String?
+  conversionFactor Float @default(1)
+  priceSourceType String? // QUOTE | CONTRACT ; null pour historique P5.10
+  priceSourceId Int? // Identifiant de l’offre ou accord approuvé
+  priceSourceRef String? // Identifiant lisible, photographie au moment du BC
+  receiptLines GoodsReceiptLine[]
+  @@index([requestLineId])
+  @@index([materialId])
+  @@index([orderId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+model GoodsReceipt {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  supplierOrderId Int
+  supplierOrder SupplierOrder @relation(fields: [supplierOrderId], references: [id])
+  deliveryRef String
+  operator String
+  note String?
+  deliveryNoteId Int?
+  deliveryNote SupplierDeliveryNote? @relation(fields: [deliveryNoteId], references: [id])
+  createdAt DateTime @default(now())
+  lines GoodsReceiptLine[]
+  @@unique([supplierOrderId, deliveryRef])
+  @@index([createdAt])
+}
+
+model GoodsReceiptLine {
+  id Int @id @default(autoincrement())
+  goodsReceiptId Int
+  goodsReceipt GoodsReceipt @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  supplierOrderLineId Int
+  supplierOrderLine SupplierOrderLine @relation(fields: [supplierOrderLineId], references: [id])
+  acceptedQty Float
+  rejectedQty Float @default(0)
+  returnedQty Float @default(0) // formerly accepted but returned to vendor (distinct from initial refusal)
+  lot String?
+  movementId Int? @unique
+  movement Movement? @relation(fields: [movementId], references: [id])
+  lots StockLot[]
+  invoiceLines SupplierInvoiceLine[]
+  @@index([goodsReceiptId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+// P2P industriel autonome GoCmd : schéma complet déjà disponible dans db/custom.db.
+model SupplierDeliveryNote {
+  id Int @id @default(autoincrement())
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  reference String // normalized trim/uppercase; unique per vendor (per legal entity in v2)
+  createdAt DateTime @default(now())
+  receipts GoodsReceipt[]
+  @@unique([supplierId, reference])
+}
+
+model StockLot {
+  id Int @id @default(autoincrement())
+  materialId Int
+  material Material @relation(fields: [materialId], references: [id])
+  lotCode String
+  status String @default("available") // available | quarantine | returned | exhausted | legacy_unverified
+  qty Float @default(0)
+  supplierId Int?
+  receiptLineId Int?
+  receiptLine GoodsReceiptLine? @relation(fields: [receiptLineId], references: [id])
+  provenanceKey String @default("LEGACY") // BRL-<id>, otherwise preexisting unverified stock
+  receivedAt DateTime @default(now())
+  expiresAt DateTime?
+  movements Movement[]
+  inspection QualityInspection[]
+  returns SupplierReturn[]
+  placements StockPlacement[]
+  counts StockCount[]
+  salesAllocations SalesStockAllocation[]
+  salesReservations SalesStockReservation[]
+  productionReceipts ProductionMaterialReceipt[]
+  @@unique([materialId, lotCode, status, provenanceKey])
+  @@index([materialId,status])
+  @@index([receiptLineId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+model QualityInspection {
+  id Int @id @default(autoincrement())
+  materialId Int
+  material Material @relation(fields: [materialId], references: [id])
+  stockLotId Int
+  stockLot StockLot @relation(fields: [stockLotId], references: [id])
+  decision String // release | reject
+  qty Float
+  reason String
+  actor String
+  createdAt DateTime @default(now())
+  @@index([materialId]) // audit 2026-11-10 : FK non indexée par SQLite
+  @@index([stockLotId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+model SupplierReturn {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  stockLotId Int
+  stockLot StockLot @relation(fields: [stockLotId], references: [id])
+  qty Float
+  reason String
+  actor String
+  creditExpected Boolean @default(true)
+  createdAt DateTime @default(now())
+  creditAllocations SupplierReturnCreditAllocation[]
+  @@index([supplierId]) // audit 2026-11-10 : FK non indexée par SQLite
+  @@index([stockLotId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+model SupplierInvoice {
+  id Int @id @default(autoincrement())
+  supplierId Int
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  invoiceNumber String
+  invoiceDate DateTime
+  currency String @default("MAD")
+  status String @default("draft") // draft | matched | blocked | approved | paid | rejected (V18.9.1)
+  discrepancy String?
+  totalAmount Decimal @default(0)
+  freightAmount Decimal @default(0) // frais livraison, TVA et taxes spécifiques à valider par comptable
+  version Int @default(0) // optimistic guard for all payment/credit changes
+  lines SupplierInvoiceLine[]
+  payments SupplierPayment[]
+  createdBy String
+  approvedBy String?
+  rejectedBy String? // V18.9.1 (contre-audit A-05) : rejet motivé d'une facture bloquée
+  rejectionReason String? // motif contrôlé (10 caractères minimum)
+  // V18.9.2 (contre-audit F06) : politique documentaire retenue avec la
+  // comptabilité — une facture rejetée garde son numéro (unicité) et son
+  // historique ; la saisie rectifiée porte un NUMÉRO DISTINCT et déclare
+  // ici la facture qu'elle remplace. Aucune suppression d'historique.
+  replacesInvoiceId Int?
+  replacesInvoice SupplierInvoice? @relation("InvoiceReplacement", fields: [replacesInvoiceId], references: [id])
+  replacedBy SupplierInvoice[] @relation("InvoiceReplacement")
+  createdAt DateTime @default(now())
+  credits SupplierCreditNote[]
+  @@unique([supplierId, invoiceNumber])
+}
+
+model SupplierInvoiceLine {
+  id Int @id @default(autoincrement())
+  invoiceId Int
+  invoice SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  orderLineId Int // historical link to SupplierOrderLine ID; not cascaded
+  receiptLineId Int?
+  receiptLine GoodsReceiptLine? @relation(fields: [receiptLineId], references: [id])
+  qty Float
+  unitPrice Decimal
+  taxRate Decimal @default(0) // %; accounting validation required
+  @@index([orderLineId])
+  @@index([receiptLineId])
+  @@index([invoiceId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+model SupplierPayment {
+  id Int @id @default(autoincrement())
+  invoiceId Int
+  invoice SupplierInvoice @relation(fields: [invoiceId], references: [id])
+  amount Decimal
+  reference String @unique
+  actor String
+  paidAt DateTime @default(now())
+}
+
+model AuditEvent {
+  id Int @id @default(autoincrement())
+  actor String
+  action String
+  entity String
+  entityId String
+  details String?
+  createdAt DateTime @default(now())
+  @@index([entity,entityId])
+  @@index([entity,entityId,id])
+  @@index([createdAt])
+}
+
+// GoCmd v0.8 - extensions autonomes achats & stocks; aucune dépendance GoProd.
+model SupplierQualification {
+ id Int @id @default(autoincrement())
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId], references:[id], onDelete: Restrict)
+ status String @default("pending") // pending | approved | suspended | rejected
+ score Int @default(0)
+ note String?
+ reviewedBy String
+ reviewedAt DateTime @default(now())
+ expiresAt DateTime?
+ @@index([supplierId,reviewedAt])
+}
+model SupplierRFQ {
+ id Int @id @default(autoincrement())
+ ref String @unique
+ materialId Int
+ material Material @relation(fields:[materialId],references:[id])
+ requestLineId Int?
+ qty Float
+ unit String
+ targetDate DateTime?
+ deadline DateTime?
+ status String @default("open") // open | awarded | closed
+ createdBy String
+ createdAt DateTime @default(now())
+ offers SupplierQuoteOffer[]
+ awardPlans SupplierAwardPlan[]
+ consultationLine SupplierConsultationLine?
+ invitationLines SupplierConsultationRecipientLine[]
+ @@index([status,deadline])
+ @@index([createdAt,id])
+  @@index([materialId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+model SupplierQuoteOffer {
+ id Int @id @default(autoincrement())
+ rfqId Int
+ rfq SupplierRFQ @relation(fields:[rfqId],references:[id])
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ unitPrice Decimal // canonical MAD per stock unit
+ priceBasis String? // STOCK | PURCHASE ; null historical source
+ priceBasisFactor Float? // snapshot stock units per purchase unit
+ sourceUnitPrice Decimal? // original price entered by supplier
+ qty Float
+ currency String @default("MAD")
+ leadTimeDays Int
+ paymentTerms String?
+ note String?
+ // P5.11.1 : champs de devis, facultatifs pour les offres historiques
+ quoteRef String?
+ validUntil DateTime?
+ documentRef String?
+ responseChannel String @default("written") // written | phone
+ confirmationStatus String @default("confirmed") // confirmed | pending
+ contactName String?
+ callSummary String?
+ respondedAt DateTime?
+ // P5.15.15 : validation acheteur et visa responsable indépendants (offres téléphoniques).
+ recordedBy String?
+ buyerValidatedBy String?
+ buyerValidatedAt DateTime?
+ approvedBy String?
+ approvedAt DateTime?
+ attachments SupplierOfferAttachment[]
+ awardAllocations SupplierAwardAllocation[]
+ revisions SupplierQuoteRevision[]
+ revisionNo Int @default(1)
+ chosen Boolean @default(false)
+ createdAt DateTime @default(now())
+ @@unique([rfqId,supplierId])
+  @@index([supplierId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+// P5.13 — fichiers PDF hors répertoire public ; index SQLite et accès authentifié.
+model SupplierOfferAttachment {
+ id Int @id @default(autoincrement())
+ offerId Int
+ offer SupplierQuoteOffer @relation(fields:[offerId],references:[id],onDelete:Restrict)
+ originalName String
+ storedName String @unique
+ sha256 String
+ bytes Int
+ uploadedBy String
+ revisionNo Int @default(1)
+ uploadedAt DateTime @default(now())
+ @@index([offerId,uploadedAt])
+}
+// P5.12 — Dossier de consultation multi-matières et multi-fournisseurs.
+// Une RFQ d'une ligne demeure la source métier des offres / décisions.
+model SupplierConsultation {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  status String @default("prepared") // prepared | closed (aucun envoi automatique)
+  createdBy String
+  createdAt DateTime @default(now())
+  deadline DateTime?
+  lines SupplierConsultationLine[]
+  recipients SupplierConsultationRecipient[]
+  @@index([createdAt])
+  @@index([createdAt,id])
+}
+model SupplierConsultationLine {
+  id Int @id @default(autoincrement())
+  consultationId Int
+  consultation SupplierConsultation @relation(fields:[consultationId],references:[id],onDelete:Restrict)
+  rfqId Int @unique
+  rfq SupplierRFQ @relation(fields:[rfqId],references:[id],onDelete:Restrict)
+  @@index([consultationId])
+}
+model SupplierConsultationRecipient {
+  id Int @id @default(autoincrement())
+  consultationId Int
+  consultation SupplierConsultation @relation(fields:[consultationId],references:[id],onDelete:Restrict)
+  supplierId Int
+  supplier Supplier @relation(fields:[supplierId],references:[id],onDelete:Restrict)
+  lines SupplierConsultationRecipientLine[]
+  @@unique([consultationId,supplierId])
+}
+model SupplierConsultationRecipientLine {
+  id Int @id @default(autoincrement())
+  recipientId Int
+  recipient SupplierConsultationRecipient @relation(fields:[recipientId],references:[id],onDelete:Restrict)
+  rfqId Int
+  rfq SupplierRFQ @relation(fields:[rfqId],references:[id],onDelete:Restrict)
+  responseStatus String @default("invited") // invited | contacted | declined
+  contactAt DateTime?
+  lastReminderAt DateTime?
+  reminderCount Int @default(0)
+  declineReason String?
+  @@unique([recipientId,rfqId])
+  @@index([rfqId])
+}
+// P5.15.18 - Décision multi-fournisseurs traçable, avec séparation des tâches.
+model SupplierAwardPlan {
+ id Int @id @default(autoincrement())
+ rfqId Int
+ rfq SupplierRFQ @relation(fields:[rfqId],references:[id],onDelete:Restrict)
+ status String @default("pending") // pending | approved | rejected
+ reason String
+ proposedBy String
+ proposedAt DateTime @default(now())
+ decidedBy String?
+ decidedAt DateTime?
+ decisionNote String?
+ lines SupplierAwardAllocation[]
+ contractLines SupplierAwardContractAllocation[]
+ @@index([rfqId,status])
+}
+model SupplierAwardAllocation {
+ id Int @id @default(autoincrement())
+ planId Int
+ plan SupplierAwardPlan @relation(fields:[planId],references:[id],onDelete:Restrict)
+ offerId Int
+ offer SupplierQuoteOffer @relation(fields:[offerId],references:[id],onDelete:Restrict)
+ qty Float
+ unitPrice Decimal // Photographie du tarif en MAD/unité stock
+ @@unique([planId,offerId])
+ @@index([offerId])
+}
+// P5.15.19 — Aucune offre fictive pour représenter un prix contractuel.
+// Chaque ligne référence l'accord immuable et photographie le prix approuvé.
+model SupplierAwardContractAllocation {
+ id Int @id @default(autoincrement())
+ planId Int
+ plan SupplierAwardPlan @relation(fields:[planId], references:[id], onDelete:Restrict)
+ agreementId Int
+ agreement SupplierPriceAgreement @relation(fields:[agreementId], references:[id], onDelete:Restrict)
+ qty Float
+ unitPrice Decimal
+ @@unique([planId,agreementId])
+ @@index([agreementId])
+}
+// Historique append-only des révisions de devis ; le tarif actif reste sur l'offre.
+model SupplierQuoteRevision {
+ id Int @id @default(autoincrement())
+ offerId Int
+ offer SupplierQuoteOffer @relation(fields:[offerId],references:[id],onDelete:Restrict)
+ version Int
+ previousSnapshot String // JSON immutable, y compris références des PDF
+ reason String
+ revisedBy String
+ revisedAt DateTime @default(now())
+ @@unique([offerId,version])
+}
+// P5.11 - Tarif CONTRACTUEL différent du simple prix indicatif.
+// Accord immuable après proposition : approbation / révocation auditées.
+model SupplierPriceAgreement {
+ id Int @id @default(autoincrement())
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId],references:[id],onDelete:Restrict)
+ materialId Int
+ material Material @relation(fields:[materialId],references:[id],onDelete:Restrict)
+ contractRef String
+ documentRef String // Référence du justificatif contractuel (pas un fichier hébergé)
+ unitPrice Decimal // canonical MAD per stock unit
+ priceBasis String? // STOCK | PURCHASE ; null historical source
+ priceBasisFactor Float?
+ sourceUnitPrice Decimal?
+ currency String @default("MAD")
+ validFrom DateTime
+ validUntil DateTime
+ status String @default("pending") // pending | approved | revoked
+ createdBy String
+ approvedBy String?
+ approvedAt DateTime?
+ revokedBy String?
+ revokedAt DateTime?
+ revokeReason String?
+ createdAt DateTime @default(now())
+ awardAllocations SupplierAwardContractAllocation[]
+ @@unique([supplierId,materialId,contractRef])
+ @@index([supplierId,materialId,status,validUntil])
+ @@index([materialId,status,validUntil], map:"SupplierPriceAgreement_material_status_validUntil_idx")
+}
+
+model SupplierOrderRevision {
+ id Int @id @default(autoincrement())
+ orderId Int
+ order SupplierOrder @relation(fields:[orderId],references:[id])
+ revision Int
+ previousSnapshot String
+ newSnapshot String
+ reason String
+ actor String
+ createdAt DateTime @default(now())
+ @@unique([orderId,revision])
+}
+model SupplierCreditNote {
+ id Int @id @default(autoincrement())
+ ref String @unique
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ invoiceId Int
+ invoice SupplierInvoice @relation(fields:[invoiceId],references:[id])
+ returnId Int? // V18.9.2 : premier retour lié (trace) ; la consommation réelle est portée par SupplierReturnCreditAllocation
+ amount Decimal
+ reason String
+ status String @default("draft") // draft | approved | rejected | cancelled
+ kind String @default("balance") // V18.9.2 (contre-audit F02) : balance = diminue le solde à payer ; refund = avoir après règlement (créance fournisseur)
+ version Int @default(0) // V18.9.2 (contre-audit F05) : garde optimiste des affectations de crédit
+ actor String
+ decisionActor String?
+ decisionReason String?
+ decidedAt DateTime?
+ createdAt DateTime @default(now())
+ allocations SupplierReturnCreditAllocation[]
+ refund SupplierRefund?
+ @@index([invoiceId])
+ @@index([kind,status])
+  @@index([supplierId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+// V18.9.2 (contre-audit F05) : affectation d'un avoir à un retour, en centimes,
+// plafonnée par avoir. Un avoir de 100 MAD peut couvrir un retour de 20 MAD et
+// conserver 80 MAD mobilisables pour un retour ultérieur.
+model SupplierReturnCreditAllocation {
+ id Int @id @default(autoincrement())
+ returnId Int
+ supplierReturn SupplierReturn @relation(fields:[returnId],references:[id])
+ creditId Int
+ creditNote SupplierCreditNote @relation(fields:[creditId],references:[id])
+ amountCents Int
+ createdAt DateTime @default(now())
+ @@unique([returnId,creditId])
+ @@index([creditId])
+}
+// V18.9.2 (contre-audit F02) : créance de remboursement née de l'approbation
+// d'un avoir post-règlement (kind = "refund"). pending = à obtenir du
+// fournisseur ; refunded = remboursement exécuté (virement ou imputation sur
+// une transaction ultérieure), avec rapprochement comptable.
+model SupplierRefund {
+ id Int @id @default(autoincrement())
+ creditNoteId Int @unique
+ creditNote SupplierCreditNote @relation(fields:[creditNoteId],references:[id])
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ amount Decimal
+ status String @default("pending") // pending | refunded
+ method String? // bank | offset
+ reference String?
+ actor String
+ refundedAt DateTime?
+ refundActor String?
+ createdAt DateTime @default(now())
+ @@index([supplierId,status])
+}
+model SupplierDispute {
+ id Int @id @default(autoincrement())
+ supplierId Int
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ entityType String
+ entityId Int
+ category String
+ reason String
+ status String @default("open") // open | resolved
+ resolution String?
+ openedBy String
+ resolvedBy String?
+ openedAt DateTime @default(now())
+ resolvedAt DateTime?
+ @@index([supplierId,status])
+}
+model WarehouseSite {
+ id Int @id @default(autoincrement())
+ code String @unique
+ name String
+ active Boolean @default(true)
+ locations StorageLocation[]
+}
+model StorageLocation {
+ id Int @id @default(autoincrement())
+ warehouseId Int
+ warehouse WarehouseSite @relation(fields:[warehouseId],references:[id])
+ code String
+ name String
+ status String @default("active")
+ placements StockPlacement[]
+ counts StockCount[]
+ @@unique([warehouseId,code])
+}
+model StockPlacement {
+ id Int @id @default(autoincrement())
+ stockLotId Int
+ stockLot StockLot @relation(fields:[stockLotId],references:[id])
+ locationId Int
+ location StorageLocation @relation(fields:[locationId],references:[id])
+ qty Float
+ @@unique([stockLotId,locationId])
+  @@index([locationId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+model SupplierDeliverySchedule {
+ id Int @id @default(autoincrement())
+ orderId Int
+ order SupplierOrder @relation(fields:[orderId],references:[id])
+ targetDate DateTime
+ plannedQty Float?
+ note String?
+ status String @default("planned") // planned | confirmed | cancelled
+ actor String
+ createdAt DateTime @default(now())
+ @@index([orderId,targetDate])
+}
+
+model StockCount {
+ id Int @id @default(autoincrement())
+ lotId Int
+ lot StockLot @relation(fields:[lotId],references:[id])
+ locationId Int
+ location StorageLocation @relation(fields:[locationId],references:[id])
+ expectedQty Float
+ observedQty Float
+ reason String
+ status String @default("pending") // pending | approved | rejected
+ countedBy String
+ approvedBy String?
+ countedAt DateTime @default(now())
+ approvedAt DateTime?
+ @@index([status,countedAt])
+ @@index([countedAt,id])
+  @@index([lotId]) // audit 2026-11-10 : FK non indexée par SQLite
+  @@index([locationId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+
+// ── GoCmd V0.13 : cycle de vente autonome, devis -> commande -> BL -> facture ──
+// Les valeurs monétaires sont stockées en centimes MAD, sans Float.
+model SalesDocCounter {
+  id String @id // DEV/BLC/FAC/AVC/RCL/MFP:<année> documents ventes ; WORK_ORDER/FINISHED_STOCK:<année> OF et stock fini ; GOCMD_STOCK_RESERVATION_LOCK verrou (cf. sales/route.ts, action reserve-stock/release-stock) ; GOCMD_OF_PREPARE_LOCK verrou de sérialisation des préparations d'OF (cf. work-orders/[id]/route.ts, P5.15.22 CLT-04)
+  value Int @default(0)
+}
+model SalesQuote {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  clientId Int
+  client Client @relation(fields:[clientId],references:[id])
+  status String @default("draft") // draft | sent | accepted | rejected | converted
+  payload String // copie figée des lignes, gabarits, pièces et conditions de commande
+  clientNameSnapshot String? // renseigné à l'émission (anciens documents: null)
+  productsSnapshotJson String? // copie des noms/SKU par position de ligne
+  subtotalCents Int
+  expiresAt DateTime?
+  createdBy String
+  acceptedBy String?
+  acceptanceRef String?
+  priceReviewRequired Boolean @default(false)
+  priceApprovedBy String? // Visa du directeur pour prix hors catalogue sur ce devis immuable
+  priceApprovedAt DateTime?
+  priceApprovalReason String?
+  priceApprovalsJson String? // V2 R4 : visas individuels, index de ligne + empreinte du devis
+  priceReviewPlanJson String? // besoins de visa et prix du catalogue, figés à la création
+  createdAt DateTime @default(now())
+  order Order?
+  @@index([clientId,status])
+}
+model SalesDelivery {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  orderId Int
+  order Order @relation(fields:[orderId],references:[id])
+  status String @default("posted") // posted ; correction par document compensatoire ultérieur
+  note String?
+  createdBy String
+  deliveredAt DateTime @default(now())
+  requestKey String? @unique // Idempotence des BL : le meme jeton ne poste qu'un document
+  requestHash String? // Empreinte du contenu pour refuser la réutilisation malveillante du jeton
+  clientNameSnapshot String? // nom du client au moment de la livraison
+  lines SalesDeliveryLine[]
+  @@index([orderId,deliveredAt])
+}
+model SalesDeliveryLine {
+  id Int @id @default(autoincrement())
+  deliveryId Int
+  delivery SalesDelivery @relation(fields:[deliveryId],references:[id])
+  orderLineId Int
+  orderLine OrderLine @relation(fields:[orderLineId],references:[id])
+  qty Float // ml ou u, somme des pièces identifiées
+  unit String
+  pieceIds String // JSON des identifiants OrderPiece livrés, sans répétition inter-BL
+  invoiceLine SalesInvoiceLine?
+  stockAllocations SalesStockAllocation[]
+  finishedAllocations FinishedStockAllocation[]
+  customerReturns CustomerReturn[]
+  productNameSnapshot String?
+  productSkuSnapshot String?
+  @@index([orderLineId])
+  @@index([deliveryId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+// Réservation logistique sans débit du stock : l'expédition la consomme.
+// La somme des réservations d'un lot ne doit jamais dépasser le stock disponible.
+model SalesStockReservation {
+  id Int @id @default(autoincrement())
+  orderLineId Int
+  orderLine OrderLine @relation(fields: [orderLineId], references: [id])
+  stockLotId Int
+  stockLot StockLot @relation(fields: [stockLotId], references: [id])
+  qty Float
+  createdBy String
+  createdAt DateTime @default(now())
+  // P6 (2026-11-11), chantier 2 §3.3 : début d'engagement, fixé à la création et
+  // JAMAIS rajeuni par une modification administrative ou une consommation
+  // partielle (contrairement à updatedAt). Les alertes d'ancienneté et
+  // d'expiration se calculent sur cette date. Backfill historique = createdAt.
+  engagedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([orderLineId,stockLotId])
+  @@index([stockLotId])
+  @@index([engagedAt])
+}
+
+// Ventilation physique des articles de négoce par BL et par lot.
+model SalesStockAllocation {
+  id Int @id @default(autoincrement())
+  deliveryLineId Int
+  deliveryLine SalesDeliveryLine @relation(fields:[deliveryLineId],references:[id])
+  stockLotId Int
+  stockLot StockLot @relation(fields:[stockLotId],references:[id])
+  movementId Int @unique
+  movement Movement @relation(fields:[movementId],references:[id])
+  qty Float // toujours dans l'unite stock de la matiere
+  unit String
+  createdAt DateTime @default(now())
+  @@index([deliveryLineId])
+  @@index([stockLotId])
+}
+model SalesInvoice {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  orderId Int
+  order Order @relation(fields:[orderId],references:[id])
+  clientId Int
+  client Client @relation(fields:[clientId],references:[id])
+  status String @default("issued") // issued | partial | paid | settled (avoir)
+  currency String @default("MAD")
+  taxRateBps Int @default(0) // 10000 = 100%, taux configurable, aucune présomption fiscale
+  subtotalCents Int
+  taxCents Int
+  totalCents Int
+  version Int @default(0) // optimistic guard for concurrent sales payments and credits
+  createdBy String
+  issuedAt DateTime @default(now())
+  clientNameSnapshot String?
+  lines SalesInvoiceLine[]
+  payments SalesPayment[]
+  credits SalesCreditNote[]
+  @@index([clientId,issuedAt])
+  @@index([orderId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+model SalesInvoiceLine {
+  creditLines SalesCreditNoteLine[]
+  id Int @id @default(autoincrement())
+  invoiceId Int
+  invoice SalesInvoice @relation(fields:[invoiceId],references:[id])
+  deliveryLineId Int @unique // une ligne de BL ne peut être facturée deux fois
+  deliveryLine SalesDeliveryLine @relation(fields:[deliveryLineId],references:[id])
+  qty Float
+  unit String
+  unitPriceCents Int
+  amountCents Int
+  productNameSnapshot String?
+  productSkuSnapshot String?
+  @@index([invoiceId]) // audit 2026-11-10 : FK non indexée par SQLite
+}
+model SalesPayment {
+  id Int @id @default(autoincrement())
+  invoiceId Int
+  invoice SalesInvoice @relation(fields:[invoiceId],references:[id])
+  ref String @unique
+  amountCents Int
+  method String
+  actor String
+  paidAt DateTime @default(now())
+  @@index([invoiceId])
+}
+model SalesCreditNote {
+  lines SalesCreditNoteLine[]
+  id Int @id @default(autoincrement())
+  invoiceId Int
+  invoice SalesInvoice @relation(fields:[invoiceId],references:[id])
+  ref String @unique
+  amountCents Int
+  reason String
+  status String @default("draft") // draft | approved | rejected | cancelled
+  actor String
+  decisionActor String?
+  decisionReason String?
+  decidedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([invoiceId])
+}
+
+// Arbitrages SODEPI 08/11/2026 : ventilations ligne-à-ligne d'avoir client.
+// Héritage : les anciens avoirs monétaires restent valides sans lignes.
+model SalesCreditNoteLine {
+  id Int @id @default(autoincrement())
+  creditNoteId Int
+  creditNote SalesCreditNote @relation(fields:[creditNoteId],references:[id],onDelete:Restrict)
+  invoiceLineId Int
+  invoiceLine SalesInvoiceLine @relation(fields:[invoiceLineId],references:[id],onDelete:Restrict)
+  qty Float
+  amountCents Int
+  taxCents Int
+  @@unique([creditNoteId,invoiceLineId])
+  @@index([invoiceLineId])
+}
+
+// VEN-03 : retour physique traçable, avant décision financière distincte.
+model CustomerReturn {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  deliveryLineId Int
+  deliveryLine SalesDeliveryLine @relation(fields:[deliveryLineId],references:[id],onDelete:Restrict)
+  qty Float
+  unit String
+  pieceIdsJson String @default("[]")
+  reason String
+  status String @default("requested") // requested | quarantine | accepted | rejected
+  requestKey String? @unique
+  createdBy String
+  createdAt DateTime @default(now())
+  receivedBy String?
+  receivedAt DateTime?
+  qualityBy String?
+  qualityAt DateTime?
+  qualityReason String?
+  finishedStockLotId Int? @unique
+  finishedStockLot FinishedStockLot? @relation(fields:[finishedStockLotId],references:[id],onDelete:Restrict)
+  @@index([deliveryLineId,status])
+}
+
+// VEN-01 : lots distincts de PRODUITS FINIS, jamais confondus avec les lots matière.
+// Entrées physiques sous double contrôle magasin/qualité ; sorties par BL uniquement.
+model FinishedStockLot {
+  id Int @id @default(autoincrement())
+  productId Int
+  product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+  lotCode String
+  status String @default("quarantine") // quarantine | available | rejected | exhausted
+  qty Int @default(0) // unités indivisibles, seulement pour produits finis vendus à l'unité
+  sourceRef String
+  workOrderId Int? // lien optionnel a un OF de CMD termine, pas un OF de reconstitution
+  workOrder WorkOrder? @relation(fields:[workOrderId],references:[id],onDelete:Restrict)
+  receivedBy String
+  qualityBy String?
+  receivedAt DateTime @default(now())
+  expiresAt DateTime?
+  movements FinishedStockMovement[]
+  allocations FinishedStockAllocation[]
+  reservations FinishedStockReservation[]
+  customerReturn CustomerReturn?
+  @@unique([productId,lotCode])
+  @@index([workOrderId])
+  @@index([productId,status])
+}
+// Réservation ferme sur lot fini, sans débit physique et sans fausse fabrication.
+// Posée lors de la préparation d'un OF stock ; consommée au BL ou libérée si suspendue.
+model FinishedStockReservation {
+  id Int @id @default(autoincrement())
+  orderLineId Int
+  orderLine OrderLine @relation(fields:[orderLineId],references:[id],onDelete:Restrict)
+  lotId Int
+  lot FinishedStockLot @relation(fields:[lotId],references:[id],onDelete:Restrict)
+  qty Int // matelas finis à l'unité
+  createdBy String
+  // Sémantique d'engagement : createdAt (jamais modifié après création).
+  createdAt DateTime @default(now())
+  // P6 (2026-11-11), chantier 2 §3.3 : dernière modification (consommation
+  // partielle). NULL pour les lignes historiques jusqu'à leur prochaine écriture.
+  updatedAt DateTime? @updatedAt
+  @@unique([orderLineId,lotId])
+  @@index([lotId])
+}
+model FinishedStockMovement {
+  id Int @id @default(autoincrement())
+  ref String @unique
+  lotId Int
+  lot FinishedStockLot @relation(fields:[lotId],references:[id],onDelete:Restrict)
+  type String // received_quarantine | released | rejected | out
+  qty Int // signé uniquement pour out ; autres types n'affectent pas qty physique
+  document String
+  actor String
+  createdAt DateTime @default(now())
+  @@index([lotId,createdAt])
+}
+model FinishedStockAllocation {
+  id Int @id @default(autoincrement())
+  deliveryLineId Int
+  deliveryLine SalesDeliveryLine @relation(fields:[deliveryLineId],references:[id],onDelete:Restrict)
+  lotId Int
+  lot FinishedStockLot @relation(fields:[lotId],references:[id],onDelete:Restrict)
+  qty Int
+  createdAt DateTime @default(now())
+  @@unique([deliveryLineId,lotId])
+  @@index([lotId])
+}
+
+// GoCmd V18.9.13 : comptes individuels persistants et audit des habilitations.
+// Installation NON DESTRUCTIVE uniquement via scripts/bootstrap-admin.cjs ;
+// ne pas utiliser prisma db push pour déployer sur une base SODEPI existante.
+// Contrats SQL/Prisma synchronisés avec src/lib/user-directory.cjs.
+model GoCmdUser {
+  id                   Int    @id @default(autoincrement())
+  username             String @unique
+  salt                 String
+  password_hash        String
+  roles_json           String
+  permissions_json     String @default("{}")
+  active               Int    @default(1)
+  is_root              Int    @default(0)
+  must_change_password Int    @default(1)
+  created_at           String
+  updated_at           String
+}
+model GoCmdAccessAudit {
+  id           Int    @id @default(autoincrement())
+  at           String
+  actor        String
+  action       String
+  target       String
+  details_json String
+
+  @@index([at])
+}
+// R13.3 (CORR-01) : sessions révocables écrites par le client Prisma en mode
+// serveur (src/lib/identity-writes.ts). Simple mapping de la table installée
+// par src/lib/user-directory.cjs (ensureSchema / upgrade-admin-session.cjs) :
+// AUCUNE migration du disque — la table existe déjà sur toutes les bases.
+model GoCmdSession {
+  token_hash String @id
+  username   String
+  expires_at Int
+  created_at String
+
+  @@index([expires_at], map: "GoCmdSession_expires_idx")
+}

@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
+import {parsePurchaseQuantity,buildPurchaseRequestLines,isValidPurchaseQuantity} from '../src/lib/purchase-quantity.ts'
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..')
+const read=p=>fs.readFileSync(path.join(root,p),'utf8')
+for(const [raw,unit,expected] of [['10.5','kg',10.5],['10,125','ml',10.125],['0.001','m',0.001],['200','bloc',200],['1.5','bloc',null],['0.0001','kg',null],['-2','kg',null],['1e3','kg',null],['1000000.1','kg',null],['1.20','u',null]])assert.equal(parsePurchaseQuantity(raw,unit),expected)
+assert.equal(isValidPurchaseQuantity(200.125,'kg'),true)
+assert.equal(isValidPurchaseQuantity(200.125,'bloc'),false)
+assert.deepEqual(buildPurchaseRequestLines([{materialId:1,qtyDraft:'10,500',unit:'kg'},{materialId:2,qtyDraft:'2',unit:'bloc'}]),[{materialId:1,qty:10.5},{materialId:2,qty:2}])
+assert.equal(buildPurchaseRequestLines([{materialId:1,qtyDraft:'0.2',unit:'bloc'}]),null)
+const purchases=read('src/app/api/purchases/route.ts')
+assert(purchases.includes('DA_EXISTANTE')&&purchases.includes('duplicateJustification'))
+assert(purchases.includes("status:{in:['pending','approved','partially_approved','ordered','partial']}"))
+assert(purchases.includes('isValidPurchaseQuantity'))
+const consultations=read('src/app/api/p2p/consultations/route.ts')
+assert(consultations.includes('RFQ_DEJA_OUVERTE')&&consultations.includes('reconsultReason'))
+const sourcing=read('src/app/api/p2p/sourcing/route.ts')
+assert(sourcing.includes('oralOffer')&&sourcing.includes('confirmOffer')&&sourcing.includes('OFFRE_ORALE_NON_CONFIRMEE'))
+assert(sourcing.includes('confirmationStatus'))
+const upload=read('src/app/api/p2p/offer-documents/route.ts')
+const download=read('src/app/api/p2p/offer-documents/[id]/route.ts')
+assert(upload.includes('MAX_PDF_BYTES')&&upload.includes('createHash')&&upload.includes("%PDF-")&&upload.includes('hasPermission'))
+assert(download.includes('readRoleGate')&&download.includes('safeDocumentName')&&download.includes('no-store'))
+const schema=read('prisma/schema.prisma')
+assert(schema.includes('model SupplierOfferAttachment')&&schema.includes('confirmationStatus String @default("confirmed")'))
+const ui=read('src/components/erp/p2p-advanced-view.tsx')
+assert(ui.includes("id:'oralOffer'")&&ui.includes("id:'confirmOffer'")&&ui.includes('OfferDocuments'))
+console.log('PASS P5.13 : quantités par unité, doublons DA/RFQ, confirmation téléphone, documents PDF, règles UI (26 contrôles)')

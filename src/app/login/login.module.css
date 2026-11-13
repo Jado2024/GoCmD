@@ -1,0 +1,185 @@
+/* GoCmd V18.9.13-p5 — connexion et identité visuelle SODEPI. */
+.screen {
+  --login-ink: #1b232c;
+  --login-muted: #596572;
+  --login-brand: #bd202a;
+  min-height: 100vh;
+  min-height: 100svh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 52% 33%, #f6f7f9 0%, #fbfbfc 52%, #f7f8fa 100%);
+  color: var(--login-ink);
+  font-family: Arial, "Helvetica Neue", sans-serif;
+}
+.layout {
+  width: min(100%, 1660px);
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: clamp(30px, 5.8vw, 100px) clamp(26px, 6.8vw, 116px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1.13fr);
+  gap: clamp(55px, 10.4vw, 178px);
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.intro { align-self: center; padding-bottom: 8px; }
+.brand { display: flex; align-items: center; gap: 29px; }
+.brandIcon {
+  width: 112px;
+  height: 112px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border-radius: 25px;
+  background: #fff; border: 1px solid #e1e5ea;
+  box-shadow: 0 9px 22px rgb(27 35 44 / 7%);
+}
+.brandIcon img { width: auto; height: 81px; max-width: 100%; object-fit: contain; }
+.brandName { font-size: clamp(39px, 3.5vw, 55px); font-weight: 750; line-height: 1.05; letter-spacing: -2.1px; }
+.brandSubtitle { margin-top: 9px; font-size: clamp(21px, 2.15vw, 34px); color: #647180; line-height: 1.2; }
+.brandRule { width: 78px; height: 7px; background: #bd202a; border-radius: 20px; margin-top: 36px; }
+.tagline { font-size: clamp(19px, 1.64vw, 27px); color: #52616f; line-height: 1.38; max-width: 535px; margin-top: 33px; letter-spacing: -.35px; }
+.features { margin-top: 46px; padding: 0; list-style: none; display: grid; gap: 28px; }
+.feature { display: flex; align-items: center; gap: 28px; }
+.featureIcon {
+  width: 75px; height: 75px; border-radius: 19px;
+  display: flex; flex: 0 0 auto; align-items: center; justify-content: center;
+}
+.featureIcon svg { width: 34px; height: 34px; stroke-width: 2; }
+.featureIconGreen { color: #b91f29; background: #fff0f1; }
+.featureIconPurple { color: #344454; background: #ecf0f4; }
+.featureIconAmber { color: #9b2431; background: #f8edef; }
+.feature h2 { font-size: 20px; line-height: 1.25; font-weight: 700; letter-spacing: -.3px; }
+.feature p { font-size: 16.4px; line-height: 1.45; color: #53616d; margin-top: 4px; max-width: 430px; }
+.loginCard {
+  width: 100%;
+  max-width: 685px;
+  justify-self: end;
+  padding: 44px clamp(28px, 3.05vw, 52px) 34px;
+  background: #fff;
+  border-radius: 26px;
+  border: 1px solid #e0e7ef;
+  box-shadow: 0 20px 44px rgb(19 40 72 / 8%), 0 2px 5px rgb(19 40 72 / 4%);
+}
+.cardTop { text-align: center; }
+.cardLogo { display: block; width: auto; height: 106px; max-width: 100%; object-fit: contain; margin: 0 auto; }
+.cardTop h1 { margin-top: 13px; font-size: clamp(25px, 2.1vw, 36px); line-height: 1.2; font-weight: 750; letter-spacing: -.9px; }
+.cardTop p { margin-top: 7px; color: #52616f; font-size: clamp(16px, 1.28vw, 21px); }
+.form { margin-top: 36px; }
+.formField + .formField { margin-top: 20px; }
+.formField label { display: block; font-size: 17px; line-height: 1.45; font-weight: 650; color: #1b232c; margin-bottom: 10px; }
+.inputWrap { position: relative; }
+.inputWrap input {
+  display: block; width: 100%; min-width: 0; height: 61px;
+  border: 1.5px solid #d3dce7;
+  border-radius: 12px;
+  padding: 0 55px 0 62px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  color: #1b232c;
+  background: #fff;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.inputWrap input::placeholder { color: #677787; opacity: 1; }
+.inputWrap input:hover { border-color: #a8bacf; }
+.inputWrap input:focus-visible { border-color: #bd202a; box-shadow: 0 0 0 3px #fac6c9; }
+.inputWrap input:disabled { background: #f6f8fa; opacity: .8; }
+.inputIcon { position: absolute; width: 23px; height: 23px; left: 21px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #647280; }
+.visibilityButton {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; right: 8px; top: 50%; transform: translateY(-50%);
+  border: none; border-radius: 10px; background: transparent;
+  color: #566474; cursor: pointer;
+}
+.visibilityButton svg { width: 23px; height: 23px; }
+.visibilityButton:hover { color: #bd202a; background: #fff0f1; }
+.visibilityButton:focus-visible, .forgotButton:focus-visible, .submit:focus-visible {
+  outline: 3px solid #bd202a; outline-offset: 3px;
+}
+.visibilityButton:disabled { opacity: .5; cursor: not-allowed; }
+.submit {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 61px;
+  margin-top: 30px;
+  padding: 12px 20px;
+  border: none; border-radius: 11px;
+  background: #bd202a; color: #fff;
+  font: inherit; font-size: 20px; font-weight: 700;
+  cursor: pointer; transition: background .15s, transform .15s;
+}
+.submit:hover { background: #9f1720; }
+.submit:active { transform: translateY(1px); }
+.submit:disabled { opacity: .7; cursor: wait; transform: none; }
+.forgotButton {
+  display: block; padding: 9px 12px; margin: 17px auto 0;
+  border: none; border-radius: 7px; background: transparent;
+  color: #a71b25; font: inherit; font-size: 17px; font-weight: 550;
+  cursor: pointer;
+}
+.forgotButton:hover { color: #89141d; text-decoration: underline; }
+.alert { background: #fff0f2; border: 1px solid #f8b9c5; color: #921d36; border-radius: 9px; padding: 12px 14px; margin-top: 17px; font-size: 14px; line-height: 1.5; }
+.helpText { background: #f5f6f8; color: #344454; border-radius: 9px; padding: 12px 14px; margin-top: 8px; text-align: center; font-size: 14px; line-height: 1.5; }
+.cardFooter {
+  border-top: 1px solid #e9edf1; margin-top: 23px; padding-top: 25px;
+  display: flex; align-items: center; justify-content: center; gap: 17px;
+  color: #586674; font-size: 15px; line-height: 1.4;
+}
+.cardFooter svg { width: 23px; height: 23px; flex: 0 0 auto; }
+.waves { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.waves span { position: absolute; background: #fde8ea; opacity: .65; filter: blur(.1px); }
+.waves span:first-child { width: 57vw; height: 250px; border-radius: 60% 90% 0 0; left: -24vw; bottom: -130px; transform: rotate(20deg); }
+.waves span:last-child { width: 42vw; height: 180px; border-radius: 90% 70% 0 0; left: 7vw; bottom: -112px; transform: rotate(-10deg); background: #f9e9eb; opacity: .55; }
+@media (max-width: 1190px) {
+  .layout { gap: 50px; padding-inline: 36px; grid-template-columns: minmax(0,1fr) minmax(385px,1fr); }
+  .brandIcon { width: 80px; height: 80px; border-radius: 19px; }
+  .brandIcon img { width: auto; height: 54px; }
+  .brand { gap: 20px; }
+  .brandName { font-size: 40px; }
+  .brandSubtitle { font-size: 23px; }
+  .feature { gap: 15px; }
+  .featureIcon { width: 58px; height: 58px; border-radius: 14px; }
+  .featureIcon svg { width: 26px; height: 26px; }
+  .feature h2 { font-size: 17px; }
+  .feature p { font-size: 14px; }
+  .loginCard { padding-inline: 30px; }
+}
+@media (max-width: 850px) {
+  .screen { overflow: auto; }
+  .layout { min-height: 100svh; max-width: 620px; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 25px; padding: 28px 20px 48px; }
+  .intro { text-align: center; padding: 0; }
+  .brand { justify-content: center; gap: 12px; }
+  .brandIcon { width: 56px; height: 56px; border-radius: 14px; }
+  .brandIcon img { width: auto; height: 38px; }
+  .brandName { font-size: 30px; letter-spacing: -1px; }
+  .brandSubtitle { margin-top: 2px; font-size: 15px; }
+  .brandRule, .tagline, .features { display: none; }
+  .loginCard { max-width: 100%; padding: 30px 23px 23px; border-radius: 20px; }
+  .cardLogo { height: 83px; }
+  .cardTop h1 { margin-top: 10px; font-size: 25px; }
+  .cardTop p { font-size: 15px; }
+  .form { margin-top: 24px; }
+  .formField label { font-size: 15px; margin-bottom: 7px; }
+  .inputWrap input { height: 53px; font-size: 16px; padding-left: 50px; }
+  .inputIcon { left: 15px; width: 21px; height: 21px; }
+  .submit { min-height: 54px; margin-top: 21px; font-size: 17px; }
+  .forgotButton { font-size: 15px; }
+  .cardFooter { padding-top: 19px; font-size: 12px; }
+  .waves span:first-child { width: 85vw; height: 150px; left: -35vw; bottom: -110px; }
+  .waves span:last-child { width: 75vw; height: 120px; left: 30vw; bottom: -95px; }
+}
+@media (max-width: 380px) {
+  .layout { padding-inline: 12px; }
+  .loginCard { padding-inline: 16px; }
+  .inputWrap input { font-size: 15px; }
+  .cardFooter { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inputWrap input, .submit { transition: none; }
+}

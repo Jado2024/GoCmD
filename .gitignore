@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+*.log
+.env
+!.env.example
+tsconfig.tsbuildinfo
+
+# Sauvegardes et journaux SQLite à ne pas committer
+db/*.before_v*.bak
+db/*.db-wal
+db/*.db-shm
+db/*.db-journal
+__pycache__/
+*.pyc
+
+# Backups created by additive P6 migrations; never embed them in the official project ZIP
+db/*.avant_anciennete_p6_*.db
+
+# Artefacts Playwright (traces d échec) — jamais committés
+test-results/

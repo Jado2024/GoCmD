@@ -1,0 +1,281 @@
+{
+  "dataNature": "SIMULATION_ONLY",
+  "assumption": "PHYSICAL_INVENTORY_ASSUMED_VALIDATED_FOR_TESTS_NOT_ACTUALLY_INSPECTED",
+  "items": [
+    {
+      "id": 1,
+      "ref": "MP-CON-001",
+      "qty": 94.475
+    },
+    {
+      "id": 2,
+      "ref": "MP-CON-002",
+      "qty": 209.42026
+    },
+    {
+      "id": 3,
+      "ref": "MP-CON-003",
+      "qty": 2490.0
+    },
+    {
+      "id": 4,
+      "ref": "MP-MER-004",
+      "qty": 1235.0
+    },
+    {
+      "id": 5,
+      "ref": "MP-MER-005",
+      "qty": 3912.0
+    },
+    {
+      "id": 6,
+      "ref": "MP-MER-006",
+      "qty": 923.2800000000002
+    },
+    {
+      "id": 7,
+      "ref": "MP-MOU-007",
+      "qty": 150.0
+    },
+    {
+      "id": 8,
+      "ref": "MP-MOU-008",
+      "qty": 415.0
+    },
+    {
+      "id": 9,
+      "ref": "MP-MOU-009",
+      "qty": 48.0
+    },
+    {
+      "id": 10,
+      "ref": "MP-MOU-010",
+      "qty": 261.663
+    },
+    {
+      "id": 11,
+      "ref": "MP-MOU-011",
+      "qty": 88.0
+    },
+    {
+      "id": 12,
+      "ref": "MP-MOU-012",
+      "qty": 148.0
+    },
+    {
+      "id": 13,
+      "ref": "MP-MOU-013",
+      "qty": 104.0
+    },
+    {
+      "id": 14,
+      "ref": "MP-MOU-014",
+      "qty": 12.0
+    },
+    {
+      "id": 15,
+      "ref": "MP-MOU-015",
+      "qty": 295.0
+    },
+    {
+      "id": 16,
+      "ref": "MP-MOU-016",
+      "qty": 118.0
+    },
+    {
+      "id": 17,
+      "ref": "MP-MOU-017",
+      "qty": 28.0
+    },
+    {
+      "id": 18,
+      "ref": "MP-MOU-018",
+      "qty": 208.0
+    },
+    {
+      "id": 19,
+      "ref": "MP-MOU-019",
+      "qty": 96.0
+    },
+    {
+      "id": 20,
+      "ref": "MP-MOU-020",
+      "qty": 92.0
+    },
+    {
+      "id": 21,
+      "ref": "MP-MOU-021",
+      "qty": 365.0
+    },
+    {
+      "id": 22,
+      "ref": "MP-MOU-022",
+      "qty": 140.601
+    },
+    {
+      "id": 23,
+      "ref": "MP-MOU-023",
+      "qty": 172.0
+    },
+    {
+      "id": 24,
+      "ref": "MP-MOU-024",
+      "qty": 71.0
+    },
+    {
+      "id": 25,
+      "ref": "MP-MOU-025",
+      "qty": 158.0
+    },
+    {
+      "id": 26,
+      "ref": "MP-MOU-026",
+      "qty": 127.799
+    },
+    {
+      "id": 27,
+      "ref": "MP-MOU-027",
+      "qty": 45.0
+    },
+    {
+      "id": 28,
+      "ref": "MP-MOU-028",
+      "qty": 238.0
+    },
+    {
+      "id": 29,
+      "ref": "MP-MOU-029",
+      "qty": 485.0
+    },
+    {
+      "id": 30,
+      "ref": "MP-MOU-030",
+      "qty": 76.0
+    },
+    {
+      "id": 31,
+      "ref": "MP-MOU-031",
+      "qty": 190.0
+    },
+    {
+      "id": 32,
+      "ref": "MP-MER-032",
+      "qty": 1400.32
+    },
+    {
+      "id": 33,
+      "ref": "MP-CON-033",
+      "qty": 2349.21943
+    },
+    {
+      "id": 34,
+      "ref": "MP-MER-034",
+      "qty": 956.24
+    },
+    {
+      "id": 35,
+      "ref": "MP-MER-035",
+      "qty": 800.48
+    },
+    {
+      "id": 36,
+      "ref": "MP-TIS-036",
+      "qty": 2400.0
+    },
+    {
+      "id": 37,
+      "ref": "MP-TIS-037",
+      "qty": 2400.0
+    },
+    {
+      "id": 38,
+      "ref": "MP-TIS-038",
+      "qty": 2400.0
+    },
+    {
+      "id": 39,
+      "ref": "MP-TIS-039",
+      "qty": 2400.0
+    },
+    {
+      "id": 40,
+      "ref": "MP-TIS-040",
+      "qty": 2400.0
+    },
+    {
+      "id": 41,
+      "ref": "MP-TIS-041",
+      "qty": 2400.0
+    },
+    {
+      "id": 42,
+      "ref": "MP-TIS-042",
+      "qty": 2400.0
+    },
+    {
+      "id": 43,
+      "ref": "MP-TIS-043",
+      "qty": 2400.0
+    },
+    {
+      "id": 44,
+      "ref": "MP-TIS-044",
+      "qty": 2400.0
+    },
+    {
+      "id": 45,
+      "ref": "MP-TIS-045",
+      "qty": 2386.824
+    },
+    {
+      "id": 46,
+      "ref": "MP-TIS-046",
+      "qty": 2400.0
+    },
+    {
+      "id": 47,
+      "ref": "MP-TIS-047",
+      "qty": 2400.0
+    },
+    {
+      "id": 48,
+      "ref": "MP-TIS-048",
+      "qty": 90.0
+    },
+    {
+      "id": 49,
+      "ref": "MP-TIS-049",
+      "qty": 2400.0
+    },
+    {
+      "id": 50,
+      "ref": "MP-TIS-050",
+      "qty": 2400.0
+    },
+    {
+      "id": 51,
+      "ref": "MP-TIS-051",
+      "qty": 2400.0
+    },
+    {
+      "id": 52,
+      "ref": "MP-TIS-052",
+      "qty": 2400.0
+    },
+    {
+      "id": 53,
+      "ref": "MP-TIS-053",
+      "qty": 2400.0
+    },
+    {
+      "id": 54,
+      "ref": "MP-TIS-054",
+      "qty": 2400.0
+    },
+    {
+      "id": 55,
+      "ref": "MP-TIS-055",
+      "qty": 2400.0
+    }
+  ]
+}

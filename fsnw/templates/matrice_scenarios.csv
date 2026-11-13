@@ -1,0 +1,6 @@
+scenario,titre,skills,roles,condition,resultat_attendu,preuve,statut
+SC-01,Achats de DA au paiement,achats-p2p;sqlite-integrite,buyer;approver;receiver;quality;finance,BC réception partielle,Quantités/4 yeux/facture/solde cohérents,,Non testé
+SC-02,Vente au règlement,ventes-directeur;catalogue-gabarits,sales;director;approver;finance,"Salon en ml, BL partiel","8,8×235=2068 MAD HT ; pas de double livraison",,Non testé
+SC-05,Inventaire et correction,stocks-qualite;securite-confidentialite,inventory;approver,100 théorique 97 réel,-3 uniquement après validation,,Non testé
+SC-09,RBAC/séparation des tâches,securite-confidentialite;ventes-directeur,sales;director;approver;admin;finance;quality,Prix spécial/avoirs/données coûts,Refus roles non autorisés ; 4 yeux,,Non testé
+SC-12,Sauvegarde et restauration,exploitation-resilience;sqlite-integrite,admin,Copie et restore distinct,Integrité et comptages identiques,,Non testé

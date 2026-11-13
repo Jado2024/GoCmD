@@ -1,0 +1,56 @@
+<!-- GoCmd P5.15.29 — configuration WinSW (Windows Service Wrapper).
+     Procédure de déploiement en service Windows — À VALIDER SUR SITE (recette SODEPI).
+
+     1. Télécharger WinSW-x64.exe (https://github.com/winsw/winsw/releases, licence MIT)
+        et le renommer : gocmd-service.exe dans C:\GoCmd\service\
+     2. Placer ce fichier à côté : C:\GoCmd\service\gocmd-service.xml
+     3. Adapter les chemins <arguments> ci-dessous à l'installation réelle.
+     4. Créer un COMPTE DE SERVICE à privilèges minimum (voir installer-service.ps1).
+     5. Installer : .\gocmd-service.exe install   puis   .\gocmd-service.exe start
+
+     Le service exécute le lanceur vérifié start-gocmd-checked.cjs, qui applique
+     les contrôles de démarrage (schéma, intégrité, journal DELETE, gardes
+     d'historique) et REFUSE de démarrer si un contrôle échoue : le service
+     s'arrête alors en erreur (recovery ci-dessous redémarre avec backoff). -->
+<service>
+  <id>GoCmd</id>
+  <name>GoCmd ERP SODEPI</name>
+  <description>Serveur GoCmd P5.15.29 — ERP industriel SODEPI. Compte de service à privilèges limités, démarrage automatique différé, journalisation technique.</description>
+  <!-- WinSW v3 : pas de LocalSystem implicite, même en installation manuelle. -->
+  <serviceaccount>
+    <username>NT AUTHORITY\LocalService</username>
+  </serviceaccount>
+
+  <!-- Node.js doit être installé pour Tous les utilisateurs (ou adapter le chemin) -->
+  <executable>C:\Program Files\nodejs\node.exe</executable>
+  <arguments>"C:\GoCmd\gocmd\scripts\start-gocmd-checked.cjs"</arguments>
+  <workingdirectory>C:\GoCmd\gocmd</workingdirectory>
+
+  <env name="NODE_ENV" value="production"/>
+  <env name="GOCMD_DB_FILE" value="C:\GoCmd\data\gocmd.db"/>
+  <env name="GOCMD_DOCUMENTS_DIR" value="D:\GoCmdVault\documents-prives"/>
+  <env name="GOCMD_REQUIRE_SQLITE_USERS" value="1"/>
+  <env name="GOCMD_REQUIRE_RBAC" value="1"/>
+  <env name="GOCMD_ACCESS_PASSWORD" value=""/>
+  <!-- URL publique HTTPS réelle (derrière reverse proxy) : OBLIGATOIRE en production -->
+  <env name="GOCMD_PUBLIC_ORIGIN" value="https://gocmd.sodepi.local"/>
+  <env name="GOCMD_TRUST_PROXY" value="0"/>
+  <!-- TVA : aucun taux de démonstration en production.
+       Renseigner uniquement après validation écrite par la comptabilité SODEPI. -->
+  <env name="GOCMD_SALES_TAX_RATES_BPS" value=""/>
+  <env name="HOSTNAME" value="127.0.0.1"/>
+  <env name="PORT" value="3000"/>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <!-- Redémarrage maîtrisé : 3 tentatives espacées, puis arrêt (intervention requise) -->
+  <onfailure action="restart" delay="30 sec"/>
+  <onfailure action="restart" delay="2 min"/>
+  <onfailure action="none"/>
+
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+    <logpath>C:\GoCmd\service\logs</logpath>
+  </log>
+</service>

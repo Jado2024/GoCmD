@@ -1,0 +1,170 @@
+{
+  "date": "2026-11-11T23:18:57.876572+00:00",
+  "description": "Exécution de 20 contrôles/points de revue FSNW: PASS_CIBLE signifie uniquement test représentatif",
+  "node_version": "v22.16.0",
+  "db_sha256": "69fc947a3724d8451c54f748a41da325aab2e9a1077e702a1f5bfd91b69156e4",
+  "skills": [
+    {
+      "skill": "audit-orchestrator",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_v2_r5_delivery_policy.py",
+      "exitCode": 0,
+      "stdoutTail": "R5 delivery-policy static + SQLite: PASS\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "preuve-tracabilite",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_p6_audit_seal_chain.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS seal --chain initial \nPASS maillon initial créé (sans parent) \nPASS seal --chain second \nPASS maillons précédents conservés (append-only) \nPASS le second maillon référence le premier (empreinte) \nPASS verify --chain : PASS base + chaîne intègres \nPASS verify --chain --deep : vérification exhaustive PASS \nPASS falsification du second intervalle détectée sans --deep \nPASS re-scellage du second intervalle refusé \nPASS suppression du DERNIER maillon détectée \nPASS nouveau scellement interdit après perte terminale \nPASS falsification détectée (code 2) \nPASS re-scellage après falsification REFUSÉ (code 6) \nPASS aucun maillon ajouté par le refus \nPASS après restauration, scellement accepté \nPASS suppression d'un maillon détectée (code 4) \nPASS scellement classique (P5.15.2) toujours disponible \nPASS vérification classique (P5.15.2) toujours disponible \nPASS clé absente/incorrecte refusée \n\nP6 SCELLEMENT : chaîne append-only vérifiée (falsification, re-scellage frauduleux refusé, suppression de maillon et vérification exhaustive --deep).\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "build-ci",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "sqlite-integrite",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_stock_sqlite_atomicity.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS: concurrence SQLite simulée, pas de stock négatif ni de double réception.\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "securite-confidentialite",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_security_closure_20261109.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS Commande : rôle directeur + permission explicite avant transaction\nPASS Devis : rôle directeur + permission explicite avant transaction\nPASS Refus explicite du droit tarifaire dans la matrice RBAC\nPASS Association fournisseur : tarif entrant interdit si droit absent\nPASS Association fournisseur : DTO de sortie filtré\nPASS Association fournisseur : DTO n’altère pas le prix sauvegardé\nPASS Association fournisseur : réponse non mise en cache\nPASS CI : test commercial et correctifs sécurité bloquants\nPASS Ancien OF : statut après confirmation, pas de double visa\nPASS Stock : emplacement réservé à magasinier autorisé\nPASS Stock : UI affiche zone et signale emplacements multiples\nPASS Aucun nouveau scan ou étiquette imposés aux MP\nPASS 12 contrats statiques (HTTP, build et navigateur restent à exécuter séparément)\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "achats-p2p",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_da_bc_br_sqlite.py",
+      "exitCode": 0,
+      "stdoutTail": "Migration OK, fournisseurs : 24\nBC : 0 BR : 0\nMigration OK, fournisseurs : 24\nBC : 0 BR : 0\nOK : fournisseurs multiples, DA scindée en 2 BC, BR partiel, lots, refus hors stock, BL unique, historiques préservés\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "stocks-qualite",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_v07_lots_provenance.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS V07: 7 contrôles SQL sur provenance BR, même lot multi-BR, unicité, statut qualité et retour net\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "ventes-directeur",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v2-price-snapshot.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "TAP version 13\n# Subtest: GENERIC: price update preserves all technical details and refreshes SHA-256\nok 1 - GENERIC: price update preserves all technical details and refreshes SHA-256\n  ---\n  duration_ms: 2.47462\n  type: 'test'\n  ...\n# Subtest: CATALOG: price update preserves all technical details and refreshes SHA-256\nok 2 - CATALOG: price update preserves all technical details and refreshes SHA-256\n  ---\n  duration_ms: 0.369487\n  type: 'test'\n  ...\n# Subtest: unsafe snapshots and invalid currency values fail closed\nok 3 - unsafe snapshots and invalid currency values fail closed\n  ---\n  duration_ms: 0.265219\n  type: 'test'\n  ...\n# Subtest: tampered snapshots, stale line price and absent hash cannot be silently rewritten\nok 4 - tampered snapshots, stale line price and absent hash cannot be silently rewritten\n  ---\n  duration_ms: 0.344809\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 17.815701\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "catalogue-gabarits",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v2-pf-database-parity.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "PF generator parity: 189/189\nTAP version 13\n# Subtest: every fixed PF DEMO SKU and identity matches the server generator exactly\nok 1 - every fixed PF DEMO SKU and identity matches the server generator exactly\n  ---\n  duration_ms: 729.929563\n  type: 'test'\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 736.11851\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "ux-accessibilite",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_v18910_ux_contract.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS V18.9.10 — 17 familles de contrats UX/UI vérifiées statiquement (anti-régression des correctifs UX-001…040)\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "tests-navigateur-playwright",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "performance-react-nextjs",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "finance-maroc",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v182-finance-export.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "PASS V18.2: integer-cent invoice balance + CSV injection protection (22 checks)\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "exploitation-resilience",
+      "status": "PASS_CIBLE",
+      "command": "python tests/test_p6_exploitation.py",
+      "exitCode": 0,
+      "stdoutTail": "PASS métriques : échecs de connexion comptés (23) \nPASS métriques : aucune donnée confidentielle (compteurs seulement) \nPASS métriques : base absente → erreur générique, code 2 \nPASS sauvegarde complète réussie \nPASS archive produite \nPASS archive : manifeste + base + documents présents \nPASS vérification --verify-only réussie \nPASS restauration réussie \nPASS base restaurée : intégrité ok \nPASS base restaurée : aucune violation FK \nPASS document restauré identique \nPASS document altéré → sauvegarde refusée \nPASS restauration sur cible existante refusée \nPASS rétention : plafond de 14 archives respecté \nPASS verifier-sante : état OPÉRATIONNEL présent \nPASS verifier-sante : état DÉGRADÉ présent \nPASS verifier-sante : état INTERVENTION REQUISE présent \nPASS verifier-sante : état ARRÊT SÉCURISÉ présent \nPASS verifier-sante : contrôle « Application » présent \nPASS verifier-sante : contrôle « Service Windows » présent \nPASS verifier-sante : contrôle « Base SQLite » présent \nPASS verifier-sante : contrôle « Disque » présent \nPASS verifier-sante : contrôle « Sauvegarde complète » présent \nPASS verifier-sante : contrôle « Scellement audit » présent \nPASS verifier-sante : contrôle « Accès » présent \nPASS verifier-sante : contrôle « Erreurs applicatives » présent \nPASS verifier-sante : contrôle « Redémarrages » présent \nPASS verifier-sante : codes de sortie distincts documentés \n\nP6 EXPLOITATION : santé (4 états + métriques), sauvegarde/restauration vérifiées, gardes négatives et rétention conformes.\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "benchmark-normes",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "nettoyage-code",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "contre-audit-livraison",
+      "status": "NON_TESTE",
+      "evidence_level": "aucun test exécuté",
+      "reason": "Audit manuel ou environnement complet requis; ne pas assimiler à PASS"
+    },
+    {
+      "skill": "articles-negoce-o2c",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v18913p5153-article-trade.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "PASS P5.15.3: 14 tests unitaires + contrôles statiques catalogue/commandes/BL/stock\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "acheteur-poste-travail",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v18913p5155-buyer-workbench.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "TAP version 13\n# Subtest: source fixture: ruptures achetables, faibles et fabrication sont séparées\nok 1 - source fixture: ruptures achetables, faibles et fabrication sont séparées\n  ---\n  duration_ms: 9.111282\n  type: 'test'\n  ...\n# Subtest: DOUBLONS: une DA ouverte retire la matière du bouton création DA\nok 2 - DOUBLONS: une DA ouverte retire la matière du bouton création DA\n  ---\n  duration_ms: 0.693635\n  type: 'test'\n  ...\n# Subtest: Les besoins sans fournisseur ne sont pas automatiquement achetés\nok 3 - Les besoins sans fournisseur ne sont pas automatiquement achetés\n  ---\n  duration_ms: 0.266922\n  type: 'test'\n  ...\n# Subtest: Unité bloc indivisible, kg 3 décimales max; suggestions non arrondies à la baisse\nok 4 - Unité bloc indivisible, kg 3 décimales max; suggestions non arrondies à la baisse\n  ---\n  duration_ms: 0.762639\n  type: 'test'\n  ...\n# Subtest: RBAC côté API et aucun prix transmis au poste de travail\nok 5 - RBAC côté API et aucun prix transmis au poste de travail\n  ---\n  duration_ms: 0.405131\n  type: 'test'\n  ...\n# Subtest: Navigation, écrans et blocage création pour mousse agglomérée\nok 6 - Navigation, écrans et blocage création pour mousse agglomérée\n  ---\n  duration_ms: 0.267293\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 20.170139\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    },
+    {
+      "skill": "acheteur-navigation-complete",
+      "status": "PASS_CIBLE",
+      "command": "node --experimental-strip-types tests/v18913p5156-buyer-navigation.test.mjs",
+      "exitCode": 0,
+      "stdoutTail": "TAP version 13\n# Subtest: Buyer pur: parcours achats + vue reconstitution MTS, aucun module commercial/finance/administration\nok 1 - Buyer pur: parcours achats + vue reconstitution MTS, aucun module commercial/finance/administration\n  ---\n  duration_ms: 1.201441\n  type: 'test'\n  ...\n# Subtest: Les autres métiers et les comptes multi-rôles conservent leurs droits\nok 2 - Les autres métiers et les comptes multi-rôles conservent leurs droits\n  ---\n  duration_ms: 0.163636\n  type: 'test'\n  ...\n# Subtest: Le menu buyer suit la chaîne physique de travail, sans cacher les vues multi-rôles\nok 3 - Le menu buyer suit la chaîne physique de travail, sans cacher les vues multi-rôles\n  ---\n  duration_ms: 0.53705\n  type: 'test'\n  ...\n# Subtest: Chaque onglet a un guidage contextualisé et une navigation clavier\nok 4 - Chaque onglet a un guidage contextualisé et une navigation clavier\n  ---\n  duration_ms: 0.283907\n  type: 'test'\n  ...\n# Subtest: Réception acheteur = lecture seule, réceptionnaire conserve saisie\nok 5 - Réception acheteur = lecture seule, réceptionnaire conserve saisie\n  ---\n  duration_ms: 0.33161\n  type: 'test'\n  ...\n# Subtest: BC: approbateurs peuvent consulter mais pas préparer les BC dans l’interface\nok 6 - BC: approbateurs peuvent consulter mais pas préparer les BC dans l’interface\n  ---\n  duration_ms: 0.966056\n  type: 'test'\n  ...\n# Subtest: Poste acheteur: filtres par étape, pas de fabrication transformée en achat\nok 7 - Poste acheteur: filtres par étape, pas de fabrication transformée en achat\n  ---\n  duration_ms: 0.239401\n  type: 'test'\n  ...\n1..7\n# tests 7\n# suites 0\n# pass 7\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 13.532095\n",
+      "stderrTail": "",
+      "evidence_level": "script ciblé, pas recette HTTP/UX"
+    }
+  ]
+}
