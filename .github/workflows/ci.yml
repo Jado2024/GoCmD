@@ -151,6 +151,11 @@ jobs:
         run: bun run test:work-orders:p51521
       - name: Production build
         run: bun run build
+      # QWEN 2026-11-13 : contrats comportementaux 401/503 et equivalence du tri SQL
+      # sur donnees synthetiques, sans ecriture de la DEMO. Ne remplacent pas
+      # les recettes HTTP ni les benchmarks de charge Node 24.
+      - name: R13.3 QWEN — session identity outages + P2P ordering (blocking)
+        run: npm run test:qwen:targeted
       - name: P5.15.21 contract cap HTTP and security guard tests (production build)
         run: bun run test:p51521
       - name: R13 — contre-audit indépendant et concurrence 409/503 (bloquant)

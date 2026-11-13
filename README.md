@@ -55,3 +55,7 @@ Ces chiffres sont issus des **journaux de reprise fournis**, pas de nouveaux ben
 ## Nettoyage traçable
 
 Consulter `MANIFESTE_NETTOYAGE.json` et la livraison séparée des **archives historiques**. Aucun fichier métier supprimé. La base de démonstration doit conserver le SHA-256 `65288ab6a380d3b9a7d8f8b3447fe011d01f674eca4c60efc19d310abf06545d`.
+
+## Correctifs Qwen ciblés du 13/11/2026
+
+Voir `RAPPORT_CORRECTIONS_QWEN_2026-11-13.md` (correctifs appliqués, essais réellement effectués, limites) et `PLAN_CLOTURE_APRES_QWEN.md` (tests Node 24/Windows toujours ouverts). Le projet reste **NO-GO production** tant que ces contrôles ne sont pas clôturés.

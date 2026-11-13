@@ -37,6 +37,7 @@ function safeTransport(req: NextRequest): boolean {
 }
 
 export async function POST(req:NextRequest) {
+  if (directory.managedState()==='unavailable') return NextResponse.json({error:'Service d’authentification temporairement indisponible'},{status:503,headers:{'Retry-After':'1'}})
   if (!directory.managed()) return NextResponse.json({error:"Gestion SQLite non initialisée"},{status:503})
   if (!safeTransport(req)) return NextResponse.json({error:"Connexion HTTPS requise hors de cet ordinateur"},{status:403})
   if (req.headers.get("sec-fetch-site")==="cross-site" || !req.headers.get("origin") || !isAllowedMutationOrigin(req))
@@ -61,7 +62,9 @@ export async function POST(req:NextRequest) {
   const state=attempts.get(key)
   if(state && now<state.until && state.count>=LIMIT)
     return NextResponse.json({error:"Trop de tentatives. Réessayez plus tard."},{status:429,headers:{"Retry-After":"300","Cache-Control":"no-store"}})
-  const user=directory.readUser(username)
+  const lookup=directory.readUserState(username)
+  if(lookup.status==='unavailable')return NextResponse.json({error:'Service d’authentification temporairement indisponible'},{status:503,headers:{'Retry-After':'1','Cache-Control':'no-store'}})
+  const user=lookup.status==='valid'?lookup.user:null
   if(!user?.active || !directory.checkPassword(password,user.salt,user.hash)) {
     const count=state&&now<state.until?state.count+1:1
     attempts.set(key,{count,until:now+WINDOW})

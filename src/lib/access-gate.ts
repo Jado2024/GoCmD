@@ -12,7 +12,9 @@ function accounts(): Record<string, Account> {
   } catch {return {}}
 }
 export function isAccessConfigured() {
-  return directory.managed() || (process.env.GOCMD_REQUIRE_SQLITE_USERS!=="1" && (Object.keys(accounts()).length > 0 || (process.env.GOCMD_ACCESS_PASSWORD??"").length >= 16))
+  const state=directory.managedState()
+  if(state==='unavailable')return false // fail-closed, même si un accès DEMO est configuré
+  return state==='configured' || (process.env.GOCMD_REQUIRE_SQLITE_USERS!=="1" && (Object.keys(accounts()).length > 0 || (process.env.GOCMD_ACCESS_PASSWORD??"").length >= 16))
 }
 // Limiteur d'échecs d'authentification par identifiant (défense locale d'un processus).
 // Un reverse proxy doit également limiter par IP et imposer HTTPS sur le déploiement.
@@ -45,14 +47,27 @@ function credentials(request:Request):{name:string,password:string}|null {
     return {name:raw.slice(0,i), password:raw.slice(i+1)}
   } catch {return null}
 }
+// Indicateur local à la requête ; aucun détail SQLite n'est exposé au client.
+const authInfrastructureUnavailable=new WeakSet<Request>()
+function identityOutage(){return Response.json({error:'Service d’authentification temporairement indisponible'},{status:503,headers:{'Retry-After':'1','Cache-Control':'no-store'}})}
 export function currentActor(request:Request):Actor|null {
   // SQLite identities use revocable HttpOnly sessions. Browser Basic Auth
   // credentials must never allow an authenticated user to bypass logout.
-  if(directory.managed()){
+  const identityState=directory.managedState()
+  if(identityState==='unavailable'){
+    authInfrastructureUnavailable.add(request)
+    return null
+  }
+  if(identityState==='configured'){
     const sessionCookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>x.startsWith('gocmd_session='));
     const token=sessionCookie?.slice('gocmd_session='.length)||'';
-    const entry=directory.readSession(token);
-    if(!entry)return null;
+    const lookup=directory.readSessionState(token);
+    if(lookup.status==='unavailable'){
+      authInfrastructureUnavailable.add(request)
+      return null
+    }
+    if(lookup.status!=='valid')return null;
+    const entry=lookup.user;
     return {username:entry.username,roles:entry.roles as Role[],legacy:false,
       managed:true,isRoot:entry.isRoot,permissions:entry.permissions,mustChangePassword:entry.mustChangePassword};
   }
@@ -129,12 +144,14 @@ export function canSeeMaterialCosts(request:Request):boolean{
     (actor.managed ? hasPermission(request,"costs.read") : (actor.roles.some(r=>MATERIAL_COST_ROLES.includes(r)))))
 }
 export function readRoleGate(request:Request,roles:Role[]):Response|null{
+  if(directory.managedState()==='unavailable')return identityOutage()
   if(!isAccessConfigured())return Response.json({error:"Initialiser les comptes SQLite ou configurer explicitement un accès de démonstration"},{status:503})
   const supplied=directory.managed()?null:credentials(request)
   const name=supplied?.name??"anonymous"
   if(!directory.managed() && blocked(name))return Response.json({error:"Trop de tentatives. Réessayez plus tard."},{status:429,headers:{"Retry-After":"60","Cache-Control":"no-store"}})
   const actor=currentActor(request)
   if(!actor){
+    if(authInfrastructureUnavailable.has(request))return identityOutage()
     if(directory.managed())return Response.json({error:"Session expirée : reconnectez-vous"},{status:401,headers:{"Cache-Control":"no-store"}});
     recordFailure(name);return new Response("Authentification GoCmd requise",{status:401,headers:{"WWW-Authenticate":'Basic realm="GoCmd", charset="UTF-8"',"Cache-Control":"no-store"}})
   }
@@ -201,6 +218,7 @@ function permissionForOperation(request:Request):string|null{
   return null
 }
 export function accessGate(request:Request, requiredRole?:Role):Response|null{
+  if(directory.managedState()==='unavailable')return identityOutage()
   if(!isAccessConfigured())return Response.json({error:"Initialiser les comptes SQLite ou configurer explicitement un accès de démonstration"},{status:503})
   const pathname=new URL(request.url).pathname;
   // Public endpoints for cookie-based SQLite login/logout.
@@ -210,6 +228,7 @@ export function accessGate(request:Request, requiredRole?:Role):Response|null{
   if(!directory.managed() && blocked(name))return Response.json({error:"Trop de tentatives. Réessayez plus tard."},{status:429,headers:{"Retry-After":"60","Cache-Control":"no-store"}})
   const actor=currentActor(request)
   if(!actor){
+    if(authInfrastructureUnavailable.has(request))return identityOutage()
     if(directory.managed()){
       if(!pathname.startsWith('/api/') && request.method==='GET')return Response.redirect(new URL('/login',request.url),302);
       return Response.json({error:'Session expirée : reconnectez-vous'},{status:401,headers:{'Cache-Control':'no-store'}});

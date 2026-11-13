@@ -3,9 +3,11 @@ declare const registry: {
   RIGHTS: Readonly<Record<string, readonly string[]>>;
   dbFilename(): string | null;
   managed(): boolean;
+  managedState(): 'configured'|'unconfigured'|'unavailable';
   recordLoginFailure(username:string,reason?:string):boolean;
   /** Reauthentification nominative limitée et auditée pour les décisions tarifaires sensibles. */
   verifySensitivePassword(username:string,password:string,scope:"director.prices"):"ok"|"invalid"|"limited"|"unavailable";
+  readUserState(username:string): {status:'unavailable'|'invalid';user?:never}|{status:'valid';user:{username:string;roles:string[];permissions:Record<string,boolean>;active:boolean;isRoot:boolean;mustChangePassword:boolean;salt:string;hash:string;createdAt:string}};
   readUser(username: string): {username:string;roles:string[];permissions:Record<string,boolean>;active:boolean;isRoot:boolean;mustChangePassword:boolean;salt:string;hash:string;createdAt:string}|null;
   checkPassword(password:string,salt:string,hash:string):boolean;
   prepareSchema():boolean;
@@ -21,6 +23,7 @@ declare const registry: {
   /** Lit une session valide, retourne null si expirée/révoquée. */
   readSession(token:string):{username:string;roles:string[];permissions:Record<string,boolean>;active:boolean;isRoot:boolean;mustChangePassword:boolean;salt:string;hash:string;createdAt:string}|null;
   /** Révoque immédiatement une session. */
+  readSessionState(token:string): {status:'unavailable'|'invalid';user?:never}|{status:'valid';user:{username:string;roles:string[];permissions:Record<string,boolean>;active:boolean;isRoot:boolean;mustChangePassword:boolean;salt:string;hash:string;createdAt:string}};
   revokeSession(token:string):boolean;
   /** Mise à niveau SQLite explicite des sessions/root. */
   migrateRootAndSessions():{username:string};

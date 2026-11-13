@@ -23,10 +23,10 @@ export function consultationListQuery(filters: Filters, soon: number) {
   const created = milliseconds(Prisma.sql`c.createdAt`)
   const deadline = milliseconds(Prisma.sql`c.deadline`)
   const target = milliseconds(Prisma.sql`r.targetDate`)
-  const lines = Prisma.sql`FROM SupplierConsultationLine l
+  const lineSources = Prisma.sql`FROM SupplierConsultationLine l
     JOIN SupplierRFQ r ON r.id = l.rfqId
-    JOIN Material m ON m.id = r.materialId
-    WHERE l.consultationId = c.id`
+    JOIN Material m ON m.id = r.materialId`
+  const lines = Prisma.sql`${lineSources} WHERE l.consultationId = c.id`
   const exists = (condition: Prisma.Sql) => Prisma.sql`EXISTS (SELECT 1 ${lines} AND (${condition}))`
   const where: Prisma.Sql[] = []
   const supplierId = Number.isSafeInteger(filters.supplierId) && filters.supplierId > 0 ? filters.supplierId : null
@@ -109,11 +109,23 @@ export function consultationListQuery(filters: Filters, soon: number) {
   if (filters.priority === 'due_soon') where.push(Prisma.sql`(${deadline} <= ${soon} OR ${exists(Prisma.sql`${target} <= ${soon}`)})`)
 
   const lastDate = 8640000000000000
+  // QWEN PERF-P2P : pour les listes volumineuses, agréger le classement par
+  // consultation en UNE passe (au lieu de deux sous-requêtes corrélées par ligne).
+  // Ne pas pré-agréger la totalité du catalogue pour un accès par id exact.
+  const precompute = !filters.id && (filters.sort === 'urgency' || filters.sort === 'due_date' || !filters.sort)
+  const rankJoin = precompute ? Prisma.sql`LEFT JOIN (
+    SELECT l.consultationId,
+      min(CASE WHEN ${target} <= ${soon} AND m.stockQty < r.qty THEN 0
+        WHEN ${out} THEN 1 WHEN ${low} THEN 2 WHEN ${target} <= ${soon} THEN 3 ELSE 4 END) AS lineRank,
+      min(${target}) AS firstTarget
+    ${lineSources}
+    GROUP BY l.consultationId
+  ) gocmd_rank ON gocmd_rank.consultationId = c.id` : Prisma.empty
   const due = Prisma.sql`min(coalesce(${deadline}, ${lastDate}),
-    coalesce((SELECT min(${target}) ${lines}), ${lastDate}))`
+    coalesce(${precompute ? Prisma.sql`gocmd_rank.firstTarget` : Prisma.sql`(SELECT min(${target}) ${lines})`}, ${lastDate}))`
   const rank = Prisma.sql`min(
-    coalesce((SELECT min(CASE WHEN ${target} <= ${soon} AND m.stockQty < r.qty THEN 0
-      WHEN ${out} THEN 1 WHEN ${low} THEN 2 WHEN ${target} <= ${soon} THEN 3 ELSE 4 END) ${lines}), 4),
+    coalesce(${precompute ? Prisma.sql`gocmd_rank.lineRank` : Prisma.sql`(SELECT min(CASE WHEN ${target} <= ${soon} AND m.stockQty < r.qty THEN 0
+      WHEN ${out} THEN 1 WHEN ${low} THEN 2 WHEN ${target} <= ${soon} THEN 3 ELSE 4 END) ${lines})`}, 4),
     CASE WHEN ${deadline} <= ${soon} THEN 3 ELSE 4 END)`
   const stockRank = Prisma.sql`coalesce((SELECT min(CASE WHEN ${out} THEN 0 WHEN ${low} THEN 1 ELSE 2 END) ${lines}), 2)`
   const sorts: Record<string, Prisma.Sql> = {
@@ -126,6 +138,7 @@ export function consultationListQuery(filters: Filters, soon: number) {
     recent: Prisma.empty,
   }
   return {
+    join: rankJoin,
     where: where.length ? Prisma.sql`WHERE ${Prisma.join(where, ' AND ')}` : Prisma.empty,
     order: Prisma.sql`${Object.hasOwn(sorts, filters.sort) ? sorts[filters.sort] : sorts.urgency} ${created} DESC, c.id ASC`,
   }

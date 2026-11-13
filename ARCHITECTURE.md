@@ -10,10 +10,10 @@ Documentation de la RC P5.15.23. Les chiffres historiques d’inventaire ci-dess
 | React | ^19.3.1 | rendu client |
 | TypeScript | ^5.9.3 (`tsc --noEmit` en CI) | typage strict |
 | Prisma / @prisma/client | ^6.19.3 | ORM |
-| SQLite (WAL, `busy_timeout=5000`, `foreign_keys=ON`) | base unique `db/custom.db` | persistance |
+| SQLite (journal DELETE, `busy_timeout=5000`, `foreign_keys=ON`) | base unique `db/custom.db` | persistance |
 | Tailwind CSS | ^4.3.3 + shadcn/ui (New York) + Lucide | interface |
 | Zod | ^4.6.7 | validation des entrées |
-| Bun | install/lockfile ; Node ≥ 20 pour scripts | exécution |
+| Bun | install/lockfile ; Node ≥ 24 pour serveur et scripts utilisant node:sqlite | exécution |
 
 ## Structure du code
 
@@ -48,9 +48,10 @@ fsnw/                    doctrine métier + 20 skills d'audit (voir
    (approbations, réceptions, factures, paiements, mouvements de stock).
 3. **Séparation des tâches à quatre yeux** fondée sur l'identité de l'auteur
    (`SELF_APPROVAL` 403), même en cumul de rôles.
-4. **SQLite durci** : WAL activé au démarrage du client, PRAGMA appliqués en
-   attente + pré-vol déterministe dans la file d'écritures (DEF-S-05), base
-   verrouillée par le garde `refuse-unsafe-schema-change.cjs` contre
+4. **SQLite durci (R13.3)** : journal `DELETE` obligatoire et vérifié au
+   démarrage (`WAL` refusé depuis P5.15.28), `busy_timeout=5000`,
+   `foreign_keys=ON`, sérialisation des écritures par Prisma et verrou
+   mono-instance. Le garde `refuse-unsafe-schema-change.cjs` interdit
    `prisma db push` accidentel.
 5. **Audit trail** : événements d'audit en base (`GoCmdAccessAudit`,
    `AuditEvent`), journalisation des décisions sensibles (attributions,

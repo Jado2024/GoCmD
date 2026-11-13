@@ -213,7 +213,10 @@
     "test:r132:contracts": "node --test tests/r132-technical-503-contract.test.cjs",
     "test:r133:integrity:contract": "node --test tests/r133-handoff-integrity-contract.test.cjs",
     "test:r133:integrity:http": "node tests/r133-dual-engine-corruption.test.cjs",
-    "test:dgen01": "node tests/r133-dgen01-generic-taxonomy.test.cjs"
+    "test:dgen01": "node tests/r133-dgen01-generic-taxonomy.test.cjs",
+    "test:qwen:auth": "node tests/qwen-auth-state.test.cjs && node tests/qwen-auth-gate-behavior.test.cjs",
+    "test:qwen:p2p": "python tests/qwen-p2p-sort-equivalence.py",
+    "test:qwen:targeted": "npm run test:qwen:auth && npm run test:qwen:p2p"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

@@ -42,7 +42,7 @@ export async function GET(req:NextRequest){
   return NextResponse.json({error:'Identifiant de consultation invalide'},{status:400});
  const search=(params.get('search')??'').trim().slice(0,100);
  const exact=!id&&search?await db.supplierConsultation.findUnique({where:{ref:search.toUpperCase()},select:{id:true}}):null;
- const {where,order:sortSql}=consultationListQuery({
+ const {where,join:sortJoin,order:sortSql}=consultationListQuery({
   search:exact?'':search,
   category:(params.get('category')??'').trim().slice(0,80),
   supplierId:Number(params.get('supplierId')??0),
@@ -52,7 +52,7 @@ export async function GET(req:NextRequest){
  },Date.now()+3*86400000);
  const [counts, pageRows]=await db.$transaction([
   db.$queryRaw<{total:bigint}[]>(Prisma.sql`SELECT count(*) AS total FROM SupplierConsultation c ${where}`),
-  db.$queryRaw<{id:number}[]>(Prisma.sql`SELECT c.id FROM SupplierConsultation c ${where}
+  db.$queryRaw<{id:number}[]>(Prisma.sql`SELECT c.id FROM SupplierConsultation c ${sortJoin} ${where}
    ORDER BY ${sortSql} LIMIT ${pageSize} OFFSET ${(page-1)*pageSize}`),
  ]);
  const total=Number(counts[0].total);

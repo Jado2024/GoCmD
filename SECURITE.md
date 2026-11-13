@@ -15,8 +15,8 @@ Contrôles réellement implémentés dans le code livré. Référence doctrinale
 
 ## Rôles et permissions (RBAC serveur)
 
-- 9 rôles : `buyer`, `sales`, `approver`, `receiver`, `inventory`, `quality`,
-  `finance`, `admin`, `director`.
+- 10 rôles : `buyer`, `sales`, `approver`, `receiver`, `inventory`, `quality`,
+  `finance`, `admin`, `director`, `production`.
 - Un compte peut **cumuler** des rôles ; les permissions restent par action
   (`users.read/manage`, `purchases.create/approve`, etc.), contrôlées **côté
   serveur** sur chaque route.
@@ -54,7 +54,7 @@ Contrôles réellement implémentés dans le code livré. Référence doctrinale
 
 ## Intégrité de la base
 
-- SQLite : WAL, `busy_timeout=5000`, `foreign_keys=ON`, appliqués de façon
+- SQLite : journal `DELETE` (WAL refusé), `busy_timeout=5000`, `foreign_keys=ON`, vérifiés de façon
   déterministe (DEF-S-05).
 - `prisma db push` **refusé** par le garde `scripts/refuse-unsafe-schema-change.cjs`
   (DEF-S-01) : les migrations passent par les scripts SQL officiels contrôlés.

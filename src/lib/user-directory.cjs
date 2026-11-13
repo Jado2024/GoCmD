@@ -68,14 +68,34 @@ function connection(write=false){
  catch(e){try{cache?.close()}catch{} console.error('[user-directory] SQLite indisponible:',e&&typeof e.code==='string'&&/^SQLITE_[A-Z_]+$/.test(e.code)?e.code:'DB_OPEN_ERROR');cache=null;return null}
 }
 function installed(db){return !!db && !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='GoCmdUser'").get()}
-function managed(){try{const db=connection();return installed(db) && Number(db.prepare('SELECT COUNT(*) AS n FROM GoCmdUser').get().n)>0}catch{return false}}
+// Distinguer comptes absents et panne temporaire : un incident SQLite ne doit
+// jamais être interprété comme une identité déconnectée ou un login invalide.
+function managedState(){
+ const filename=dbFilename();
+ if(!filename || !fs.existsSync(filename))return 'unconfigured';
+ try{
+  const db=connection();
+  if(!db)return 'unavailable';
+  if(!installed(db))return 'unconfigured';
+  return Number(db.prepare('SELECT COUNT(*) AS n FROM GoCmdUser').get().n)>0?'configured':'unconfigured';
+ }catch{return 'unavailable'}
+}
+function managed(){return managedState()==='configured'}
 function safeJson(raw,fallback){try{const value=JSON.parse(raw);return value&&typeof value==='object'?value:fallback}catch{return fallback}}
 function normalize(row){if(!row)return null;return {
  username:row.username,roles:(Boolean(row.is_root)?["admin"]:safeJson(row.roles_json,[]).filter(r=>ROLES.includes(r))),
  permissions:safeJson(row.permissions_json,{}),active:Boolean(row.active),isRoot:Boolean(row.is_root),mustChangePassword:Boolean(row.must_change_password),
  salt:row.salt,hash:row.password_hash,createdAt:row.created_at
 }}
-function readUser(username){try{const db=connection();if(!installed(db))return null;return normalize(db.prepare('SELECT * FROM GoCmdUser WHERE username=? COLLATE NOCASE').get(username))}catch{return null}}
+function readUserState(username){
+ try{
+  const db=connection();if(!db || !installed(db))return {status:'unavailable'};
+  const row=db.prepare('SELECT * FROM GoCmdUser WHERE username=? COLLATE NOCASE').get(username);
+  return row?{status:'valid',user:normalize(row)}:{status:'invalid'};
+ }catch{return {status:'unavailable'}}
+}
+// Compatibilité avec les scripts CLI : conserve l'ancienne interface nullable.
+function readUser(username){const result=readUserState(username);return result.status==='valid'?result.user:null}
 function checkPassword(password,salt,hash){try{const known=Buffer.from(hash,'hex'),test=scryptSync(password,Buffer.from(salt,'hex'),32);return known.length===test.length&&timingSafeEqual(known,test)}catch{return false}}
 function hashPassword(password){if(typeof password!=='string'||password.length<16||password.length>256)throw Error('Mot de passe requis : 16 à 256 caractères');const salt=randomBytes(16).toString('hex');return {salt,hash:scryptSync(password,Buffer.from(salt,'hex'),32).toString('hex')}}
 function validateIdentity(username){if(!/^[a-z][a-z0-9._-]{2,49}$/.test(username||''))throw Error('Identifiant : 3 à 50 caractères, lettres minuscules, chiffres, point, tiret');}
@@ -223,15 +243,17 @@ function createSession(username){
    return {token,maxAge:SESSION_SECONDS};
  })
 }
-function readSession(token){
- if(!/^[A-Za-z0-9_-]{40,100}$/.test(token||''))return null;
+function readSessionState(token){
+ if(!/^[A-Za-z0-9_-]{40,100}$/.test(token||''))return {status:'invalid'};
  try{
-   const db=connection();if(!installed(db))return null;
-   const row=db.prepare('SELECT username FROM GoCmdSession WHERE token_hash=? AND expires_at>?').get(sessionHash(token),Math.floor(Date.now()/1000));
-   if(!row)return null;
-   const user=readUser(row.username);return user?.active?user:null;
- }catch{return null}
+   const db=connection();if(!db || !installed(db))return {status:'unavailable'};
+   const row=db.prepare('SELECT u.* FROM GoCmdSession s JOIN GoCmdUser u ON u.username=s.username COLLATE NOCASE WHERE s.token_hash=? AND s.expires_at>?')
+     .get(sessionHash(token),Math.floor(Date.now()/1000));
+   if(!row || !row.active)return {status:'invalid'};
+   return {status:'valid',user:normalize(row)};
+ }catch{return {status:'unavailable'}}
 }
+function readSession(token){const result=readSessionState(token);return result.status==='valid'?result.user:null}
 function revokeSession(token){
  if(SERVER_RUNTIME)serverWriteRefused('revokeSession');
  if(!/^[A-Za-z0-9_-]{40,100}$/.test(token||''))return false;
@@ -257,4 +279,4 @@ function migrateRootAndSessions(){
    return {username:root.username};
  });
 }
-module.exports={ROLES,RIGHTS,dbFilename,managed,readUser,checkPassword,hashPassword,validateIdentity,cleanRoles,cleanPermissions,prepareSchema,bootstrap,listUsers,createUser,updateUser,changeOwnPassword,recentAudit,recordLoginFailure,verifySensitivePassword,allowed,createSession,readSession,revokeSession,migrateRootAndSessions,isServerRuntime:()=>SERVER_RUNTIME};
+module.exports={ROLES,RIGHTS,dbFilename,managed,managedState,readUser,readUserState,checkPassword,hashPassword,validateIdentity,cleanRoles,cleanPermissions,prepareSchema,bootstrap,listUsers,createUser,updateUser,changeOwnPassword,recentAudit,recordLoginFailure,verifySensitivePassword,allowed,createSession,readSession,readSessionState,revokeSession,migrateRootAndSessions,isServerRuntime:()=>SERVER_RUNTIME};
